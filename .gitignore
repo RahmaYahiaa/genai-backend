@@ -7,14 +7,15 @@ node_modules/
 !.env.example
 
 # Runtime data (user uploads and generated files - data, never source code)
-uploads/
-data/
+/uploads/
+/data/
 
-# Local-only documentation (not pushed to GitHub)
-docs/
+# Local-only documentation (not pushed to GitHub; root folder only so
+# src/api/v1/docs/ source code stays tracked)
+/docs/
 
 # Tests (local only for now)
-tests/
+/tests/
 coverage/
 
 # Logs

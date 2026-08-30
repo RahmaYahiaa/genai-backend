@@ -12,6 +12,11 @@ export const ROLES = {
 
 export const ROLE_VALUES = Object.values(ROLES);
 
+export const TOKEN_TYPES = {
+  ACCESS: 'access',
+  REFRESH: 'refresh',
+};
+
 export const LANGUAGES = {
   ENGLISH: 'en',
   ARABIC: 'ar',
