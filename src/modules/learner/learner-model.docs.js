@@ -128,6 +128,14 @@
 
 /**
  * @openapi
+ * components:
+ *   tags:
+ *     - name: Learner Model
+ *       description: Per-student mastery profile and learning gaps
+ */
+
+/**
+ * @openapi
  * /courses/{courseId}/learner-model:
  *   get:
  *     summary: Get the deterministic learner model (student owner only)
@@ -136,7 +144,7 @@
  *       aggregated misconception codes, an overview, and the recommended next
  *       action. Pure deterministic rules over learning_evidence - the LLM is
  *       never involved. Computed on read, owner-only access.
- *     tags: [Learner Flow]
+ *     tags: [Learner Model]
  *     security:
  *       - bearerAuth: []
  *     parameters:
