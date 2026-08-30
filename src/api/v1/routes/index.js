@@ -7,6 +7,7 @@ import { knowledgeIngestionRouter } from '../../../modules/knowledge/index.js';
 import { learnerDiagnosticRouter } from '../../../modules/learner/index.js';
 import { tutorRouter } from '../../../modules/tutor/index.js';
 import { practiceRouter } from '../../../modules/practice/index.js';
+import { reassessmentRouter } from '../../../modules/reassessment/index.js';
 
 const router = Router();
 
@@ -24,6 +25,9 @@ router.use(learnerDiagnosticRouter);
 router.use(tutorRouter);
 // Handles /courses/:courseId/practice/* routes internally (practice module).
 router.use(practiceRouter);
+// Handles /courses/:courseId/reassessments/* and /learning-gain routes
+// internally (reassessment module).
+router.use(reassessmentRouter);
 
 // Feature module routers (diagnostics, tutor, ...) are mounted here
 // by their module composition roots as each module is implemented.

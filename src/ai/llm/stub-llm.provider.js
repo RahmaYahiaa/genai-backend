@@ -97,7 +97,7 @@ export function createStubLlmProvider({ modelName }) {
         };
       }
 
-      if (task === 'generate_practice_questions') {
+       if (task === 'generate_practice_questions' || task === 'generate_reassessment_questions') {
         const count = Math.max(1, Math.min(Number(input.count ?? 3), 10));
         const questions = [];
         for (let i = 0; i < count; i += 1) {

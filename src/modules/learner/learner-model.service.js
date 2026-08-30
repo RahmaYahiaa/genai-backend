@@ -1,8 +1,4 @@
-import {
-  GAP_SEVERITIES,
-  MASTERY_LEVELS,
-  MISCONCEPTION_STATUSES,
-} from '../../config/constants.js';
+import { GAP_SEVERITIES, MASTERY_LEVELS, MISCONCEPTION_STATUSES } from '../../config/constants.js';
 
 const GAP_BASE_SEVERITY = {
   [MASTERY_LEVELS.NO_EVIDENCE]: GAP_SEVERITIES.MEDIUM,
@@ -24,6 +20,23 @@ const ADVANCED_AVERAGE = 0.7;
 const INTERMEDIATE_AVERAGE = 0.5;
 
 /**
+ * Deterministic mastery ladder over a topic's evidence. Defined at module
+ * scope and exported because the reassessment module reuses it for "before"
+ * snapshots and the learning-gain report - the ladder has exactly one
+ * definition platform-wide.
+ */
+export function deriveMasteryLevel(evidenceCount, averageScore) {
+  if (evidenceCount === 0) return MASTERY_LEVELS.NO_EVIDENCE;
+  if (evidenceCount < MASTERY_EVIDENCE_FLOOR) return MASTERY_LEVELS.BEGINNER;
+  if (averageScore >= MASTERED_AVERAGE && evidenceCount >= MASTERED_EVIDENCE_FLOOR) {
+    return MASTERY_LEVELS.MASTERED;
+  }
+  if (averageScore >= ADVANCED_AVERAGE) return MASTERY_LEVELS.ADVANCED;
+  if (averageScore >= INTERMEDIATE_AVERAGE) return MASTERY_LEVELS.INTERMEDIATE;
+  return MASTERY_LEVELS.BEGINNER;
+}
+
+/**
  * Deterministic learner model (flow steps 8-10). ZERO machine learning by
  * design: mastery levels, gap severities, misconception aggregation, and the
  * recommended next action are pure rules over structured learning_evidence,
@@ -36,18 +49,6 @@ export function createLearnerModelService({
   evidenceRepository,
   diagnosticRepository,
 }) {
-  /** Deterministic mastery ladder over a topic's evidence. */
-  function deriveMasteryLevel(evidenceCount, averageScore) {
-    if (evidenceCount === 0) return MASTERY_LEVELS.NO_EVIDENCE;
-    if (evidenceCount < MASTERY_EVIDENCE_FLOOR) return MASTERY_LEVELS.BEGINNER;
-    if (averageScore >= MASTERED_AVERAGE && evidenceCount >= MASTERED_EVIDENCE_FLOOR) {
-      return MASTERY_LEVELS.MASTERED;
-    }
-    if (averageScore >= ADVANCED_AVERAGE) return MASTERY_LEVELS.ADVANCED;
-    if (averageScore >= INTERMEDIATE_AVERAGE) return MASTERY_LEVELS.INTERMEDIATE;
-    return MASTERY_LEVELS.BEGINNER;
-  }
-
   function normalizeTopics(course) {
     return (course.topics ?? []).map((topic) => ({
       id: topic.id ?? String(topic._id),
@@ -164,9 +165,8 @@ export function createLearnerModelService({
     const overview = {
       topicsCount: topics.length,
       assessedTopicsCount,
-      masteredTopicsCount: mastery.filter(
-        (item) => item.masteryLevel === MASTERY_LEVELS.MASTERED,
-      ).length,
+      masteredTopicsCount: mastery.filter((item) => item.masteryLevel === MASTERY_LEVELS.MASTERED)
+        .length,
       gapsCount: gaps.length,
       evidenceCount: evidenceRows.length,
       overallAverageScore: evidenceRows.length
