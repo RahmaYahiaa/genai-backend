@@ -24,4 +24,10 @@ export async function complete(assessmentId) {
   ).lean();
 }
 
+export async function findLatestByStatus(studentId, courseId, status) {
+  return DiagnosticAssessment.findOne({ studentId, courseId, status })
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
 export { toPublicDiagnostic };

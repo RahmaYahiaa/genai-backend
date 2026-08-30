@@ -9,6 +9,7 @@ import { coursesService } from '../courses/index.js';
 import { llmProvider } from '../../ai/llm/index.js';
 import { transcriptionProvider } from '../../ai/transcription/index.js';
 import { createLearnerDiagnosticService } from './learner-diagnostic.service.js';
+import { createLearnerModelService } from './learner-model.service.js';
 import { createLearnerDiagnosticController } from './learner-diagnostic.controller.js';
 import { createLearnerDiagnosticRouter } from './learner-diagnostic.routes.js';
 import { validateSchemas } from '../../shared/validation/validate.middleware.js';
@@ -37,7 +38,17 @@ export const learnerDiagnosticService = createLearnerDiagnosticService({
   transcriptionProvider,
 });
 
-const controller = createLearnerDiagnosticController({ learnerDiagnosticService });
+// Deterministic learner model (mastery/gaps/next action) - zero ML by design.
+export const learnerModelService = createLearnerModelService({
+  coursesService,
+  evidenceRepository,
+  diagnosticRepository,
+});
+
+const controller = createLearnerDiagnosticController({
+  learnerDiagnosticService,
+  learnerModelService,
+});
 
 export const learnerDiagnosticRouter = createLearnerDiagnosticRouter({
   controller,

@@ -69,11 +69,17 @@ export function createStubLlmProvider({ modelName }) {
           correctness === 'incorrect'
             ? [
                 {
+                  code: 'OFF_TOPIC_RESPONSE',
                   description: `The response does not connect to the core ideas of ${input.topicTitle}`,
                 },
               ]
             : correctness === 'partial'
-              ? [{ description: 'The response is on topic but incomplete' }]
+              ? [
+                  {
+                    code: 'INCOMPLETE_RESPONSE',
+                    description: 'The response is on topic but incomplete',
+                  },
+                ]
               : [];
 
         const feedback =

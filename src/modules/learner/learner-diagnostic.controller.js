@@ -1,7 +1,10 @@
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { sendSuccess, sendCreated } from '../../shared/http/api-response.js';
 
-export function createLearnerDiagnosticController({ learnerDiagnosticService }) {
+export function createLearnerDiagnosticController({
+  learnerDiagnosticService,
+  learnerModelService,
+}) {
   const getLearnerProfile = asyncHandler(async (req, res) => {
     const profile = await learnerDiagnosticService.getOrCreateLearnerProfile(
       req.user,
@@ -47,11 +50,20 @@ export function createLearnerDiagnosticController({ learnerDiagnosticService }) 
     sendSuccess(res, { data: evidence });
   });
 
+  const getLearnerModel = asyncHandler(async (req, res) => {
+    const model = await learnerModelService.getLearnerModel(
+      req.user,
+      req.validated.params.courseId,
+    );
+    sendSuccess(res, { data: model });
+  });
+
   return {
     getLearnerProfile,
     startDiagnostic,
     getDiagnostic,
     submitAnswer,
     listEvidence,
+    getLearnerModel,
   };
 }
