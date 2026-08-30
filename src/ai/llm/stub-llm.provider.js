@@ -97,6 +97,37 @@ export function createStubLlmProvider({ modelName }) {
         };
       }
 
+      if (task === 'generate_practice_questions') {
+        const count = Math.max(1, Math.min(Number(input.count ?? 3), 10));
+        const questions = [];
+        for (let i = 0; i < count; i += 1) {
+          const template = QUESTION_TEMPLATES[i % QUESTION_TEMPLATES.length];
+          const objectives = Array.isArray(input.objectives) ? input.objectives : [];
+          const objective = objectives[i % Math.max(objectives.length, 1)];
+          questions.push({
+            prompt: template(input.topicTitle, objective?.description),
+            difficulty: i === 0 ? 'easy' : i % 2 === 0 ? 'medium' : 'hard',
+          });
+        }
+        return { questions };
+      }
+
+      if (task === 'answer_tutor_question') {
+        // Deterministic grounded answer: restates the trusted excerpts the
+        // retrieval gate selected and cites every chunk it was given. The
+        // real provider must follow the same contract (cite only provided
+        // chunk ids); the service strips anything else.
+        const contexts = Array.isArray(input.contexts) ? input.contexts : [];
+        const sourceLines = contexts
+          .map((context) => `- ${String(context.text).slice(0, 200)}`)
+          .join('\n');
+        const answer =
+          `Based on the trusted course material for ${input.topicTitle}:\n\n${sourceLines}\n\n` +
+          `In short: these excerpts cover the key ideas of ${input.topicTitle} needed for ` +
+          `"${input.question}" - follow the cited excerpts for the full worked detail.`;
+        return { answer, usedChunkIds: contexts.map((context) => context.id) };
+      }
+
       throw new Error(`Stub LLM provider does not implement task "${task}"`);
     },
   };

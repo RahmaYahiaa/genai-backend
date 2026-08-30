@@ -86,6 +86,13 @@ export const QUESTION_DIFFICULTIES = {
   HARD: 'hard',
 };
 
+// --- RAG retrieval over material_chunks (trusted sources only) ---
+export const RETRIEVAL_SETTINGS = {
+  TOP_K: 5, // max material chunks fetched per query
+  MIN_SCORE: 0.05, // below this a chunk is noise, not evidence
+  SNIPPET_LENGTH: 200, // citation snippet length stored in tutor messages
+};
+
 export const MASTERY_LEVELS = {
   NO_EVIDENCE: 'no_evidence',
   BEGINNER: 'beginner',
