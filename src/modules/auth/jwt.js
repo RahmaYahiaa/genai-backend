@@ -9,7 +9,8 @@ function buildClaims(user, tokenType) {
   return {
     type: tokenType,
     role: user.role,
-    institutionId: user.institutionId.toString(),
+    // Null for individual learners (no institution).
+    institutionId: user.institutionId ? user.institutionId.toString() : null,
     // Token version binds every token to the user's current session epoch.
     tv: user.tokenVersion ?? 0,
   };

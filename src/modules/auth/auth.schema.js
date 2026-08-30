@@ -15,6 +15,8 @@ const passwordField = z
 const nameField = (label) =>
   z.string().trim().min(1, `${label} is required`).max(100, `${label} is too long`);
 
+const emailDomainField = z.string().trim().min(3).max(253);
+
 export const registerSchema = z
   .object({
     email: emailField,
@@ -22,11 +24,17 @@ export const registerSchema = z
     firstName: nameField('firstName'),
     lastName: nameField('lastName'),
     role: z.enum([ROLES.STUDENT, ROLES.INSTRUCTOR, ROLES.INSTITUTION_ADMIN]),
+    // Student: provide to join an institution, omit for an individual account.
+    // Instructor: required. Institution admin: must not be provided.
     institutionId: z
       .string()
       .regex(OBJECT_ID_PATTERN, 'institutionId must be a 24-character hex id')
       .optional(),
     institutionName: z.string().trim().min(2).max(200).optional(),
+    // Institution admin bootstrap: verified email domains (e.g. "zu.edu.eg").
+    emailDomains: z.array(emailDomainField).max(10, 'Provide at most 10 email domains').optional(),
+    // Institution admin bootstrap: allow or disable member self-registration.
+    allowSelfRegistration: z.boolean().optional(),
     languagePreference: z.enum([LANGUAGES.ENGLISH, LANGUAGES.ARABIC]).default(LANGUAGES.ENGLISH),
   })
   .superRefine((data, ctx) => {
@@ -37,11 +45,18 @@ export const registerSchema = z
         message: 'institutionName is required when registering an institution admin',
       });
     }
-    if (data.role !== ROLES.INSTITUTION_ADMIN && !data.institutionId) {
+    if (data.role === ROLES.INSTITUTION_ADMIN && data.institutionId) {
       ctx.addIssue({
         code: 'custom',
         path: ['institutionId'],
-        message: 'institutionId is required for students and instructors',
+        message: 'institutionId must not be provided when registering an institution admin',
+      });
+    }
+    if (data.role === ROLES.INSTRUCTOR && !data.institutionId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['institutionId'],
+        message: 'institutionId is required for instructors',
       });
     }
   });

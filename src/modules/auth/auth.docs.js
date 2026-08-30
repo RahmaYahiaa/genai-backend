@@ -1,4 +1,12 @@
 /**
+ * OpenAPI documentation for the Auth module.
+ *
+ * Kept separate from routing logic: this file is pure documentation and is
+ * picked up by the swagger-jsdoc glob for "*.docs.js" files under modules.
+ * Route files stay clean; docs and code are linked through shared path names.
+ */
+
+/**
  * @openapi
  * components:
  *   schemas:
@@ -21,8 +29,15 @@
  *         role:
  *           type: string
  *           enum: [student, instructor, institution_admin]
+ *         accountType:
+ *           type: string
+ *           enum: [institutional, individual]
+ *           description: |
+ *             institutional = member of an institution tenant.
+ *             individual = independent learner with a personal learning space (institutionId is null).
  *         institutionId:
  *           type: string
+ *           nullable: true
  *           example: 665f1c9e2a4b3c6d7e8f9a0b
  *         languagePreference:
  *           type: string
@@ -70,10 +85,21 @@
  *           enum: [student, instructor, institution_admin]
  *         institutionId:
  *           type: string
- *           description: Required for student/instructor. The tenant to join.
+ *           description: |
+ *             Required for instructor. For a student: provide it to join an institution,
+ *             or omit it to create an individual learner account (personal space).
  *         institutionName:
  *           type: string
  *           description: Required for institution_admin only. Creates the new tenant (bootstrap).
+ *         emailDomains:
+ *           type: array
+ *           items:
+ *             type: string
+ *             example: zu.edu.eg
+ *           description: 'Institution admin bootstrap only: verified email domains. Members self-registering must use an email under one of these domains.'
+ *         allowSelfRegistration:
+ *           type: boolean
+ *           description: 'Institution admin bootstrap only: when false, members cannot self-register into this institution. Default true.'
  *         languagePreference:
  *           type: string
  *           enum: [en, ar]
@@ -111,10 +137,13 @@
  * /auth/register:
  *   post:
  *     summary: Register a new user
- *     description:
- *       Students and instructors register into an existing institution (institutionId required).
- *       An institution admin registers with institutionName, which bootstraps the tenant.
- *       Returns the created user and an initial token pair.
+ *     description: >-
+ *       Dual-track registration. Institutional track: a student provides institutionId
+ *       (email must match the institution verified domains when configured) and an
+ *       instructor requires institutionId. Individual track: a student omits
+ *       institutionId and gets a personal learning space. An institution admin
+ *       registers with institutionName, which bootstraps the tenant (optionally with
+ *       emailDomains and allowSelfRegistration policy).
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -131,6 +160,8 @@
  *               $ref: '#/components/schemas/AuthSession'
  *       400:
  *         $ref: '#/components/responses/ValidationError'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
  *       409:
  *         $ref: '#/components/responses/Conflict'
  *       429:

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { ROLES, LANGUAGES } from '../../config/constants.js';
+import { LANGUAGES, ACCOUNT_TYPES, ROLES } from '../../config/constants.js';
 
 const userSchema = new mongoose.Schema(
   {
@@ -9,11 +9,20 @@ const userSchema = new mongoose.Schema(
     firstName: { type: String, required: true, trim: true, maxlength: 100 },
     lastName: { type: String, required: true, trim: true, maxlength: 100 },
     role: { type: String, enum: Object.values(ROLES), required: true },
-    // Tenant scope: enforced server-side in every authorization query.
+    // institutional = member of a tenant; individual = independent learner
+    // whose learning space is personal (institutionId stays null).
+    accountType: {
+      type: String,
+      enum: Object.values(ACCOUNT_TYPES),
+      required: true,
+      default: ACCOUNT_TYPES.INSTITUTIONAL,
+    },
+    // Tenant scope for institutional accounts; null for individual learners.
+    // Enforced server-side in every authorization query.
     institutionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Institution',
-      required: true,
+      default: null,
     },
     // Persisted per profile so it survives across sessions (multilingual layer).
     languagePreference: {
@@ -57,7 +66,8 @@ export function toPublicUser(user) {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
-    institutionId: user.institutionId.toString(),
+    accountType: user.accountType,
+    institutionId: user.institutionId ? user.institutionId.toString() : null,
     languagePreference: user.languagePreference,
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt ?? null,

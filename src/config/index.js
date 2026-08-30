@@ -50,10 +50,13 @@ const envSchema = z.object({
 
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
+
+    AUTH_FAILED_ATTEMPTS_LIMIT: z.coerce.number().int().positive().default(10),
 });
 
 function parseEnv() {
-  const parsed = envSchema.safeParse(process.env);
+  const env = typeof globalThis !== 'undefined' && globalThis.process ? globalThis.process.env : {};
+  const parsed = envSchema.safeParse(env);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
@@ -110,5 +113,9 @@ export const config = Object.freeze({
   rateLimit: {
     windowMinutes: rawConfig.RATE_LIMIT_WINDOW_MINUTES,
     maxRequests: rawConfig.RATE_LIMIT_MAX_REQUESTS,
+  },
+
+  auth: {
+    failedAttemptsLimit: rawConfig.AUTH_FAILED_ATTEMPTS_LIMIT,
   },
 });

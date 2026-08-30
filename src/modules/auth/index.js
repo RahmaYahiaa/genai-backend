@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit';
 
 import { ERROR_CODES } from '../../config/constants.js';
+import { config } from '../../config/index.js';
 import { validateSchemas } from '../../shared/validation/validate.middleware.js';
 import * as authRepository from './auth.repository.js';
 import { authenticate, authorize } from './auth.middlewares.js';
@@ -14,7 +15,7 @@ import { academicStructureService } from '../academic-structure/index.js';
 // count against the budget so legitimate users are never throttled.
 const authSensitiveLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: config.auth.failedAttemptsLimit,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   skipSuccessfulRequests: true,

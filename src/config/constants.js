@@ -17,6 +17,13 @@ export const TOKEN_TYPES = {
   REFRESH: 'refresh',
 };
 
+// How a user is attached to the platform: inside an institution tenant, or as
+// an independent learner with a personal learning space.
+export const ACCOUNT_TYPES = {
+  INSTITUTIONAL: 'institutional',
+  INDIVIDUAL: 'individual',
+};
+
 export const LANGUAGES = {
   ENGLISH: 'en',
   ARABIC: 'ar',

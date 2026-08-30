@@ -12,8 +12,13 @@ const institutionSchema = new mongoose.Schema(
       enum: Object.values(LANGUAGES),
       default: LANGUAGES.ENGLISH,
     },
+    // Verified email domains used to auto-verify institutional self-registration
+    // (e.g. "zu.edu.eg"). Empty list = no domain verification enforced.
+    emailDomains: { type: [String], default: [] },
     isActive: { type: Boolean, default: true },
     settings: {
+      // When false, users cannot self-register into this institution.
+      allowSelfRegistration: { type: Boolean, default: true },
       // Supplementary (non-official) source types institutions permit in RAG retrieval.
       allowedSupplementalSourceTypes: {
         type: [String],
