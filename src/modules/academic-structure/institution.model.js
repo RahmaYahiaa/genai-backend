@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 import { LANGUAGES, MATERIAL_SOURCE_TYPES } from '../../config/constants.js';
 
+/**
+ * Institution is the tenant root: every user, course, and analytics query is
+ * scoped by it. Kept lean for the current phase; settings live in one embedded
+ * sub-document so new governance knobs can be added without migrations.
+ */
 const institutionSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 200 },
@@ -42,5 +47,23 @@ const institutionSchema = new mongoose.Schema(
 );
 
 const Institution = mongoose.model('Institution', institutionSchema);
+
+/** Maps a lean institution document to the public API shape. */
+export function toPublicInstitution(institution) {
+  return {
+    id: institution._id.toString(),
+    name: institution.name,
+    country: institution.country ?? null,
+    defaultLanguage: institution.defaultLanguage,
+    emailDomains: institution.emailDomains ?? [],
+    isActive: institution.isActive,
+    settings: {
+      allowSelfRegistration: institution.settings?.allowSelfRegistration ?? true,
+      allowedSupplementalSourceTypes: institution.settings?.allowedSupplementalSourceTypes ?? [],
+    },
+    createdAt: institution.createdAt,
+    updatedAt: institution.updatedAt,
+  };
+}
 
 export default Institution;
