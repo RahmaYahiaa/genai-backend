@@ -160,6 +160,17 @@ export function createCoursesService({
     return toPublicCourse(course);
   }
 
+  /**
+   * Cross-module contract (used by knowledge ingestion): resolves the course
+   * under the standard write rules (same-institution admin, course staff, or
+   * personal owner) and returns the lean course document.
+   */
+  async function ensureCourseWriteAccess(user, courseId) {
+    const course = await getCourseOrNotFound(courseId);
+    assertWriteAccess(course, user);
+    return course;
+  }
+
   async function updateCourse(user, courseId, patch) {
     const course = await getCourseOrNotFound(courseId);
     assertWriteAccess(course, user);
@@ -401,6 +412,7 @@ export function createCoursesService({
     createCourse,
     listCourses,
     getCourse,
+    ensureCourseWriteAccess,
     updateCourse,
     addTopic,
     updateTopic,

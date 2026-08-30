@@ -33,6 +33,7 @@
     "pino-http": "^11.0.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
+    "undici": "^8.10.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

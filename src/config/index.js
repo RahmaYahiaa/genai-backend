@@ -43,15 +43,20 @@ const envSchema = z.object({
   ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-5'),
   ANTHROPIC_MAX_TOKENS: z.coerce.number().int().positive().default(4096),
 
-  EMBEDDING_PROVIDER: z.string().default('voyage'),
+  EMBEDDING_PROVIDER: z.enum(['stub', 'voyage']).default('stub'),
   EMBEDDING_MODEL: z.string().default('voyage-3-lite'),
-  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1024),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().min(64).max(4096).default(1024),
   VOYAGE_API_KEY: z.string().default(''),
+
+  CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(8000).default(1200),
+  CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).max(1000).default(150),
+  VECTOR_SEARCH_MODE: z.enum(['auto', 'atlas', 'fallback']).default('auto'),
+  ATLAS_VECTOR_INDEX_NAME: z.string().default('material_chunks_vector'),
 
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
 
-    AUTH_FAILED_ATTEMPTS_LIMIT: z.coerce.number().int().positive().default(10),
+  AUTH_FAILED_ATTEMPTS_LIMIT: z.coerce.number().int().positive().default(10),
 });
 
 function parseEnv() {
@@ -107,7 +112,17 @@ export const config = Object.freeze({
     embeddingProvider: rawConfig.EMBEDDING_PROVIDER,
     embeddingModel: rawConfig.EMBEDDING_MODEL,
     embeddingDimensions: rawConfig.EMBEDDING_DIMENSIONS,
-    voyageApiKey: rawConfig.VOYAGE_API_KEY,
+    embeddingApiKey: rawConfig.VOYAGE_API_KEY,
+  },
+
+  chunk: {
+    maxChars: rawConfig.CHUNK_MAX_CHARS,
+    overlapChars: rawConfig.CHUNK_OVERLAP_CHARS,
+  },
+
+  vector: {
+    searchMode: rawConfig.VECTOR_SEARCH_MODE,
+    atlasIndexName: rawConfig.ATLAS_VECTOR_INDEX_NAME,
   },
 
   rateLimit: {
