@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment secrets (example file stays tracked)
+.env
+.env.*
+!.env.example
+
+# Runtime data (user uploads and generated files - data, never source code)
+uploads/
+data/
+
+# Local-only documentation (not pushed to GitHub)
+docs/
+
+# Tests (local only for now)
+tests/
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+dist/
+build/
+out/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
