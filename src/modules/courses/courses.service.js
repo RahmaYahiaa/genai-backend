@@ -171,6 +171,30 @@ export function createCoursesService({
     return course;
   }
 
+  /**
+   * Cross-module contract (learning flow: diagnostics, evidence, tutor): only
+   * the learner themself may enter it - an enrolled institutional student or
+   * the owner of a personal space. Admins/staff are rejected (their view of
+   * learners arrives later via the instructor-intervention module).
+   */
+  async function ensureStudentCourseAccess(user, courseId) {
+    const course = await getCourseOrNotFound(courseId);
+    if (user.role !== ROLES.STUDENT) {
+      throw new ForbiddenError('Only students can access the learning flow');
+    }
+    if (course.isPersonal) {
+      if (!isPersonalOwner(course, user.id)) {
+        throw new NotFoundError('Course not found');
+      }
+      return course;
+    }
+    const enrolled = await enrollmentRepository.exists(user.id, course._id);
+    if (!enrolled) {
+      throw new NotFoundError('Course not found');
+    }
+    return course;
+  }
+
   async function updateCourse(user, courseId, patch) {
     const course = await getCourseOrNotFound(courseId);
     assertWriteAccess(course, user);
@@ -413,6 +437,7 @@ export function createCoursesService({
     listCourses,
     getCourse,
     ensureCourseWriteAccess,
+    ensureStudentCourseAccess,
     updateCourse,
     addTopic,
     updateTopic,

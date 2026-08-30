@@ -80,6 +80,12 @@ export const CORRECTNESS_LEVELS = {
   CORRECT: 'correct',
 };
 
+export const QUESTION_DIFFICULTIES = {
+  EASY: 'easy',
+  MEDIUM: 'medium',
+  HARD: 'hard',
+};
+
 export const MASTERY_LEVELS = {
   NO_EVIDENCE: 'no_evidence',
   BEGINNER: 'beginner',

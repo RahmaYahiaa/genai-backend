@@ -42,6 +42,8 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().default(''),
   ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-5'),
   ANTHROPIC_MAX_TOKENS: z.coerce.number().int().positive().default(4096),
+  LLM_PROVIDER: z.enum(['stub', 'anthropic']).default('stub'),
+  TRANSCRIPTION_PROVIDER: z.enum(['stub']).default('stub'),
 
   EMBEDDING_PROVIDER: z.enum(['stub', 'voyage']).default('stub'),
   EMBEDDING_MODEL: z.string().default('voyage-3-lite'),
@@ -109,6 +111,8 @@ export const config = Object.freeze({
     anthropicApiKey: rawConfig.ANTHROPIC_API_KEY,
     anthropicModel: rawConfig.ANTHROPIC_MODEL,
     anthropicMaxTokens: rawConfig.ANTHROPIC_MAX_TOKENS,
+    llmProvider: rawConfig.LLM_PROVIDER,
+    transcriptionProvider: rawConfig.TRANSCRIPTION_PROVIDER,
     embeddingProvider: rawConfig.EMBEDDING_PROVIDER,
     embeddingModel: rawConfig.EMBEDDING_MODEL,
     embeddingDimensions: rawConfig.EMBEDDING_DIMENSIONS,
