@@ -56,6 +56,7 @@ export const MATERIAL_STATUSES = {
   PROCESSING: 'processing',
   READY: 'ready',
   FAILED: 'failed',
+  STORED_ONLY: 'stored_only',
 };
 
 // --- Learning loop ---

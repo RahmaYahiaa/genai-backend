@@ -11,6 +11,19 @@ export function createKnowledgeIngestionController({ knowledgeIngestionService }
     sendCreated(res, material);
   });
 
+  const uploadMaterialFile = asyncHandler(async (req, res) => {
+    const material = await knowledgeIngestionService.uploadMaterialFile(
+      req.user,
+      req.validated.params.courseId,
+      {
+        file: req.file,
+        title: req.validated.body?.title,
+        sourceType: req.validated.body?.sourceType,
+      },
+    );
+    sendCreated(res, material);
+  });
+
   const listMaterials = asyncHandler(async (req, res) => {
     const { page, limit } = req.validated.query;
     const { items, total } = await knowledgeIngestionService.listMaterials(
@@ -26,6 +39,29 @@ export function createKnowledgeIngestionController({ knowledgeIngestionService }
       req.user,
       req.validated.params.courseId,
       req.validated.params.materialId,
+    );
+    sendSuccess(res, { data: material });
+  });
+
+  const downloadMaterialFile = asyncHandler(async (req, res) => {
+    const { material, absolutePath } = await knowledgeIngestionService.getMaterialFile(
+      req.user,
+      req.validated.params.courseId,
+      req.validated.params.materialId,
+    );
+    await new Promise((resolve, reject) => {
+      res.download(absolutePath, material.originalName ?? 'material', (error) =>
+        error ? reject(error) : resolve(),
+      );
+    });
+  });
+
+  const renameMaterial = asyncHandler(async (req, res) => {
+    const material = await knowledgeIngestionService.renameMaterial(
+      req.user,
+      req.validated.params.courseId,
+      req.validated.params.materialId,
+      req.validated.body,
     );
     sendSuccess(res, { data: material });
   });
@@ -52,8 +88,11 @@ export function createKnowledgeIngestionController({ knowledgeIngestionService }
 
   return {
     uploadMaterial,
+    uploadMaterialFile,
     listMaterials,
     getMaterial,
+    downloadMaterialFile,
+    renameMaterial,
     deleteMaterial,
     listChunks,
   };

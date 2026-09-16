@@ -1,5 +1,6 @@
+import path from 'node:path';
 import { MATERIAL_SOURCE_TYPES, MATERIAL_STATUSES } from '../../config/constants.js';
-import { NotFoundError, ValidationError } from '../../shared/errors/index.js';
+import { NotFoundError, UnprocessableEntityError, ValidationError } from '../../shared/errors/index.js';
 import { toPublicMaterial } from './material.model.js';
 import { toPublicChunk } from './material-chunk.model.js';
 import { chunkText } from '../../shared/text/chunker.js';
@@ -21,6 +22,8 @@ export function createKnowledgeIngestionService({
   materialChunkRepository,
   embeddingProvider,
   textExtractor,
+  fileTextExtractor,
+  fileStorage,
   chunkOptions,
   domainEvents,
 }) {
@@ -128,11 +131,154 @@ export function createKnowledgeIngestionService({
 
   async function deleteMaterial(user, courseId, materialId) {
     const course = await coursesService.ensureCourseWriteAccess(user, courseId);
-    await requireMaterialInCourse(course, materialId);
+    const material = await requireMaterialInCourse(course, materialId);
 
     await materialChunkRepository.deleteByMaterialId(materialId);
     await materialRepository.deleteById(materialId);
+    if (material.storageKey) {
+      await fileStorage.deleteMaterialFile(material.storageKey);
+    }
     return { deleted: true };
+  }
+
+  function resolveUploadTitle(desiredTitle, originalName) {
+    const base = typeof desiredTitle === 'string' ? desiredTitle.trim() : '';
+    if (base.length >= 2) return base.slice(0, 200);
+    const withoutExtension = originalName.replace(/\.[A-Za-z0-9]{1,12}$/, '').trim();
+    const candidate = withoutExtension.length >= 2 ? withoutExtension : originalName.trim();
+    return (candidate.slice(0, 200) || 'Uploaded material');
+  }
+
+  function defaultSourceType(course) {
+    return course.isPersonal
+      ? MATERIAL_SOURCE_TYPES.TEXTBOOK
+      : MATERIAL_SOURCE_TYPES.LECTURE_NOTES;
+  }
+
+  /**
+   * Multipart file upload (same access rules as the inline text upload):
+   * examinable files (text/markdown/pdf) are chunked+embedded into the RAG
+   * knowledge base; any other extension is stored as-is and downloadable
+   * without indexing. A text-expecting file with no readable text (scanned
+   * PDF) is rejected before anything is persisted.
+   */
+  async function uploadMaterialFile(user, courseId, { file, title, sourceType }) {
+    const course = await coursesService.ensureCourseWriteAccess(user, courseId);
+    const originalName = path.basename(file.originalname || 'material').slice(0, 255);
+
+    const rawText = await fileTextExtractor.extractFromFile({
+      fileName: originalName,
+      mimeType: file.mimetype,
+      buffer: file.buffer,
+    });
+
+    const materialFields = {
+      courseId: courseDocumentId(course),
+      institutionId: course.institutionId ?? null,
+      isPersonal: Boolean(course.isPersonal),
+      uploadedBy: user.id,
+      title: resolveUploadTitle(title, originalName),
+      sourceType: sourceType ?? defaultSourceType(course),
+      mimeType: file.mimetype || 'application/octet-stream',
+      storageKey: null,
+      originalName,
+      sizeBytes: 0,
+      extractionProvider: fileTextExtractor.name,
+    };
+
+    if (rawText === null) {
+      const stored = await fileStorage.saveMaterialFile(
+        courseDocumentId(course),
+        originalName,
+        file.buffer,
+      );
+      materialFields.storageKey = stored.key;
+      materialFields.sizeBytes = stored.sizeBytes;
+      const material = await materialRepository.create({
+        ...materialFields,
+        status: MATERIAL_STATUSES.STORED_ONLY,
+        sizeChars: 0,
+      });
+      domainEvents.emit('MaterialsUploaded', {
+        courseId: materialFields.courseId.toString(),
+        materialId: material._id.toString(),
+      });
+      return toPublicMaterial(material);
+    }
+
+    const chunkTexts = chunkText(rawText, chunkOptions);
+    if (chunkTexts.length === 0) {
+      throw new ValidationError('Material has no extractable text content');
+    }
+
+    const stored = await fileStorage.saveMaterialFile(
+      courseDocumentId(course),
+      originalName,
+      file.buffer,
+    );
+    materialFields.storageKey = stored.key;
+    materialFields.sizeBytes = stored.sizeBytes;
+
+    const material = await materialRepository.create({
+      ...materialFields,
+      status: MATERIAL_STATUSES.PROCESSING,
+      sizeChars: rawText.length,
+    });
+
+    try {
+      const vectors = await embeddingProvider.embed(chunkTexts);
+
+      await materialChunkRepository.insertManyChunks(
+        chunkTexts.map((text, index) => ({
+          materialId: material._id,
+          courseId: courseDocumentId(course),
+          institutionId: course.institutionId ?? null,
+          order: index,
+          text,
+          charCount: text.length,
+          embedding: vectors[index],
+          embeddingModel: embeddingProvider.model,
+          embeddingDim: embeddingProvider.dimensions,
+        })),
+      );
+
+      const ready = await materialRepository.updateById(material._id, {
+        $set: {
+          status: MATERIAL_STATUSES.READY,
+          chunkCount: chunkTexts.length,
+          embeddingModel: embeddingProvider.model,
+        },
+      });
+      domainEvents.emit('MaterialsUploaded', {
+        courseId: materialFields.courseId.toString(),
+        materialId: material._id.toString(),
+      });
+      return toPublicMaterial(ready);
+    } catch (error) {
+      await materialRepository.updateById(material._id, {
+        $set: { status: MATERIAL_STATUSES.FAILED, statusError: 'Material processing failed' },
+      });
+      throw error;
+    }
+  }
+
+  async function renameMaterial(user, courseId, materialId, { title }) {
+    const course = await coursesService.ensureCourseWriteAccess(user, courseId);
+    const material = await requireMaterialInCourse(course, materialId);
+    const updated = await materialRepository.updateById(material._id, {
+      $set: { title: title.trim() },
+    });
+    return toPublicMaterial(updated);
+  }
+
+  async function getMaterialFile(user, courseId, materialId) {
+    const course = await coursesService.getCourse(user, courseId);
+    const material = await requireMaterialInCourse(course, materialId);
+    if (!material.storageKey) {
+      throw new UnprocessableEntityError('This material has no stored file to download');
+    }
+    const absolutePath = await fileStorage.requireMaterialFile(material.storageKey);
+    return { material: toPublicMaterial(material), absolutePath };
   }
 
   async function listChunks(user, courseId, materialId, { page, limit }) {
@@ -149,8 +295,11 @@ export function createKnowledgeIngestionService({
 
   return {
     uploadMaterial,
+    uploadMaterialFile,
     listMaterials,
     getMaterial,
+    getMaterialFile,
+    renameMaterial,
     deleteMaterial,
     listChunks,
   };

@@ -7,6 +7,9 @@ import { coursesService } from '../courses/index.js';
 import { config } from '../../config/index.js';
 import { embeddingProvider } from '../../ai/embeddings/index.js';
 import { createTextExtractor } from './providers/text-extractor.js';
+import { createFileTextExtractor } from './providers/file-text-extractor.js';
+import { createFileStorage } from './file-storage.js';
+import { createMaterialUploadMiddleware } from './file-upload.middleware.js';
 import { createKnowledgeIngestionService } from './knowledge-ingestion.service.js';
 import { createKnowledgeIngestionController } from './knowledge-ingestion.controller.js';
 import { createKnowledgeIngestionRouter } from './knowledge-ingestion.routes.js';
@@ -18,6 +21,8 @@ import {
   listMaterialsQuerySchema,
   materialIdParamSchema,
   listChunksQuerySchema,
+  uploadMaterialFileFieldsSchema,
+  renameMaterialSchema,
 } from './knowledge-ingestion.schema.js';
 
 export { Material as materialModel, MaterialChunk as materialChunkModel };
@@ -31,6 +36,8 @@ export const knowledgeIngestionService = createKnowledgeIngestionService({
   materialChunkRepository,
   embeddingProvider,
   textExtractor: createTextExtractor(),
+  fileTextExtractor: createFileTextExtractor(),
+  fileStorage: createFileStorage(),
   chunkOptions: {
     maxChars: config.chunk.maxChars,
     overlapChars: config.chunk.overlapChars,
@@ -42,12 +49,14 @@ const controller = createKnowledgeIngestionController({ knowledgeIngestionServic
 
 export const knowledgeIngestionRouter = createKnowledgeIngestionRouter({
   controller,
-  middlewares: { authenticate },
+  middlewares: { authenticate, uploadMaterialFile: createMaterialUploadMiddleware() },
   validators: {
     courseIdParam: validateSchemas({ params: courseIdParamSchema }),
     createMaterial: validateSchemas({ body: createMaterialSchema }),
     materialIdParam: validateSchemas({ params: materialIdParamSchema }),
     listMaterialsQuery: validateSchemas({ query: listMaterialsQuerySchema }),
     listChunksQuery: validateSchemas({ query: listChunksQuerySchema }),
+    uploadMaterialFileFields: validateSchemas({ body: uploadMaterialFileFieldsSchema }),
+    renameMaterial: validateSchemas({ body: renameMaterialSchema }),
   },
 });

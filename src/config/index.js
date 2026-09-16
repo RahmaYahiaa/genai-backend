@@ -55,6 +55,8 @@ const envSchema = z.object({
   VECTOR_SEARCH_MODE: z.enum(['auto', 'atlas', 'fallback']).default('auto'),
   ATLAS_VECTOR_INDEX_NAME: z.string().default('material_chunks_vector'),
 
+  UPLOADS_DIR: z.string().min(1).default('uploads'),
+
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
 
@@ -62,8 +64,7 @@ const envSchema = z.object({
 });
 
 function parseEnv() {
-  const env = typeof globalThis !== 'undefined' && globalThis.process ? globalThis.process.env : {};
-  const parsed = envSchema.safeParse(env);
+  const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
@@ -127,6 +128,10 @@ export const config = Object.freeze({
   vector: {
     searchMode: rawConfig.VECTOR_SEARCH_MODE,
     atlasIndexName: rawConfig.ATLAS_VECTOR_INDEX_NAME,
+  },
+
+  uploads: {
+    dir: rawConfig.UPLOADS_DIR,
   },
 
   rateLimit: {

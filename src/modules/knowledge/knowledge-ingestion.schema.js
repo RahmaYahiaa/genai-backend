@@ -19,6 +19,23 @@ export const createMaterialSchema = z.object({
   content: z.string().min(20, 'content is too short to ingest').max(200000),
 });
 
+export const uploadMaterialFileFieldsSchema = z.object({
+  title: z.string().trim().min(2, 'title must be at least 2 characters').max(200).optional(),
+  sourceType: z
+    .enum([
+      MATERIAL_SOURCE_TYPES.OFFICIAL_SLIDES,
+      MATERIAL_SOURCE_TYPES.LECTURE_NOTES,
+      MATERIAL_SOURCE_TYPES.TEXTBOOK,
+      MATERIAL_SOURCE_TYPES.INSTRUCTOR_NOTES,
+      MATERIAL_SOURCE_TYPES.EXTERNAL_REFERENCE,
+    ])
+    .optional(),
+});
+
+export const renameMaterialSchema = z.object({
+  title: z.string().trim().min(2, 'title must be at least 2 characters').max(200),
+});
+
 export const listMaterialsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

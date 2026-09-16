@@ -18,6 +18,14 @@ export function createKnowledgeIngestionRouter({ controller, middlewares, valida
     controller.uploadMaterial,
   );
 
+  router.post(
+    '/courses/:courseId/materials/file',
+    middlewares.uploadMaterialFile,
+    validators.courseIdParam,
+    validators.uploadMaterialFileFields,
+    controller.uploadMaterialFile,
+  );
+
   router.get(
     '/courses/:courseId/materials',
     validators.courseIdParam,
@@ -29,6 +37,19 @@ export function createKnowledgeIngestionRouter({ controller, middlewares, valida
     '/courses/:courseId/materials/:materialId',
     validators.materialIdParam,
     controller.getMaterial,
+  );
+
+  router.get(
+    '/courses/:courseId/materials/:materialId/file',
+    validators.materialIdParam,
+    controller.downloadMaterialFile,
+  );
+
+  router.patch(
+    '/courses/:courseId/materials/:materialId',
+    validators.materialIdParam,
+    validators.renameMaterial,
+    controller.renameMaterial,
   );
 
   router.delete(

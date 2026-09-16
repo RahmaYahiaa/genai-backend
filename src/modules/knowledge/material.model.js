@@ -38,6 +38,11 @@ const materialSchema = new mongoose.Schema(
     },
     mimeType: { type: String, default: 'text/plain' },
     sizeChars: { type: Number, default: 0, min: 0 },
+    // Original binary for file uploads (null for inline-text materials);
+    // storageKey is relative to the uploads root and never user-controlled.
+    storageKey: { type: String, default: null },
+    originalName: { type: String, default: null },
+    sizeBytes: { type: Number, default: 0, min: 0 },
     status: {
       type: String,
       enum: Object.values(MATERIAL_STATUSES),
@@ -71,6 +76,9 @@ export function toPublicMaterial(material) {
     sourceType: material.sourceType,
     mimeType: material.mimeType,
     sizeChars: material.sizeChars ?? 0,
+    originalName: material.originalName ?? null,
+    sizeBytes: material.sizeBytes ?? 0,
+    hasFile: Boolean(material.storageKey),
     status: material.status,
     statusError: material.statusError ?? null,
     chunkCount: material.chunkCount ?? 0,
