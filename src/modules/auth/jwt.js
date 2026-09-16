@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 import { TOKEN_TYPES } from '../../config/constants.js';
@@ -25,11 +26,20 @@ export function signAccessToken(user) {
 }
 
 export function signRefreshToken(user) {
-  return jwt.sign(buildClaims(user, TOKEN_TYPES.REFRESH), config.jwt.refreshSecret, {
-    subject: user._id.toString(),
-    expiresIn: config.jwt.refreshExpiresIn,
-    algorithm: 'HS256',
-  });
+  return jwt.sign(
+    {
+      ...buildClaims(user, TOKEN_TYPES.REFRESH),
+      // Unique id per refresh token: two tokens issued within the same second
+      // must never be byte-identical (rotation detectability).
+      jti: crypto.randomUUID(),
+    },
+    config.jwt.refreshSecret,
+    {
+      subject: user._id.toString(),
+      expiresIn: config.jwt.refreshExpiresIn,
+      algorithm: 'HS256',
+    },
+  );
 }
 
 export function issueTokenPair(user) {

@@ -145,11 +145,14 @@
  * @openapi
  * /assignments/{assignmentId}:
  *   get:
- *     summary: Instructor assignment detail
+ *     summary: Assignment detail (role-based)
  *     description: >-
- *       Full instructor view of an assignment including its questions with
- *       modelAnswer and rubricText. Instructor/admin of the course only;
- *       out-of-scope ids return 404.
+ *       Instructors and institution admins get the authoring view including
+ *       questions with modelAnswer and rubricText. Enrolled institutional
+ *       students get the student DTO instead: questions stripped of
+ *       modelAnswer/rubricText plus canSubmit and their own submission state.
+ *       Personal-course and individual callers receive 403
+ *       FEATURE_NOT_AVAILABLE_FOR_PERSONAL_COURSE; out-of-scope ids 404.
  *     tags: [Assignments & Grading]
  *     security:
  *       - bearerAuth: []

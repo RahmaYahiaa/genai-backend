@@ -9,6 +9,7 @@ import { tutorRouter } from '../../../modules/tutor/index.js';
 import { practiceRouter } from '../../../modules/practice/index.js';
 import { reassessmentRouter } from '../../../modules/reassessment/index.js';
 import { assignmentsRouter } from '../../../modules/assignments/index.js';
+import { submissionsRouter } from '../../../modules/submissions/index.js';
 
 const router = Router();
 
@@ -33,6 +34,10 @@ router.use(reassessmentRouter);
 // Handles /courses/:courseId/assignments/* and /assignments/* routes
 // internally (assignments module).
 router.use(assignmentsRouter);
+
+// Handles /assignments/:assignmentId/answers/* and /submit routes internally
+// (submissions module - the student side of assignments).
+router.use(submissionsRouter);
 
 // Feature module routers (diagnostics, tutor, ...) are mounted here
 // by their module composition roots as each module is implemented.

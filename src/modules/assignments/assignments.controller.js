@@ -1,7 +1,8 @@
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { sendSuccess, sendCreated, buildPaginationMeta } from '../../shared/http/api-response.js';
+import { ROLES } from '../../config/constants.js';
 
-export function createAssignmentsController({ assignmentsService }) {
+export function createAssignmentsController({ assignmentsService, submissionsService }) {
   const createAssignment = asyncHandler(async (req, res) => {
     const assignment = await assignmentsService.createAssignment(
       req.user,
@@ -37,11 +38,17 @@ export function createAssignmentsController({ assignmentsService }) {
   });
 
   const getAssignment = asyncHandler(async (req, res) => {
-    const assignment = await assignmentsService.getAssignmentForInstructor(
-      req.user,
-      req.validated.params.assignmentId,
-    );
-    sendSuccess(res, { data: assignment });
+    const data =
+      req.user.role === ROLES.STUDENT
+        ? await submissionsService.getStudentAssignmentView(
+            req.user,
+            req.validated.params.assignmentId,
+          )
+        : await assignmentsService.getAssignmentForInstructor(
+            req.user,
+            req.validated.params.assignmentId,
+          );
+    sendSuccess(res, { data });
   });
 
   const addQuestion = asyncHandler(async (req, res) => {
