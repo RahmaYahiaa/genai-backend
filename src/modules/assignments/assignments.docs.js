@@ -221,6 +221,17 @@
  *       course (422 otherwise) because every grading result becomes learning
  *       evidence tied to that topic. maxScore must be greater than 0.
  *       modelAnswer and rubricText are free text, instructor-only.
+ *       questionType selects how the answer card renders and how the question
+ *       is graded: subjective types (short_answer, long_answer, essay,
+ *       problem_solving - default essay) are AI-graded from modelAnswer/rubric
+ *       and reject options; objective types carry an answer key -
+ *       multiple_choice/multiple_select take options[2..8] plus
+ *       correctOptionIndexes (exactly one index for multiple_choice), and
+ *       true_false takes correctAnswer (true|false) with the two options
+ *       generated server-side. Objective questions are scored deterministically
+ *       at grading time (multiple_select earns partial credit) without an AI
+ *       call. questionType and options are immutable after creation; the
+ *       answer key stays editable until it matters, per the update endpoint.
  *     tags: [Assignments & Grading]
  *     security:
  *       - bearerAuth: []
@@ -252,9 +263,30 @@
  *               rubricText:
  *                 type: string
  *                 nullable: true
+ *               questionType:
+ *                 type: string
+ *                 enum: [multiple_choice, multiple_select, true_false, short_answer, long_answer, essay, problem_solving]
+ *                 default: essay
+ *               options:
+ *                 type: array
+ *                 description: Required for multiple_choice/multiple_select (2-8 items, texts only - ids are server-generated)
+ *                 items:
+ *                   type: object
+ *                   required: [text]
+ *                   properties:
+ *                     text:
+ *                       type: string
+ *               correctOptionIndexes:
+ *                 type: array
+ *                 description: Zero-based indexes into options marking the answer key (exactly one for multiple_choice)
+ *                 items:
+ *                   type: integer
+ *               correctAnswer:
+ *                 type: boolean
+ *                 description: Required for true_false only
  *     responses:
  *       201:
- *         description: Question created
+ *         description: Question created (objective questions echo options with ids + correctOptionIds)
  *         content:
  *           application/json:
  *             schema:

@@ -1,7 +1,10 @@
 import { isValidObjectId } from 'mongoose';
+import { randomUUID } from 'node:crypto';
 import {
   ROLES,
   ASSIGNMENT_STATUS,
+  ASSIGNMENT_QUESTION_TYPES,
+  OBJECTIVE_QUESTION_TYPES,
   AUDIT_ACTIONS,
   COURSE_STAFF_ROLES,
 } from '../../config/constants.js';
@@ -107,11 +110,42 @@ export function createAssignmentsService({
     };
   }
 
+  function materializeAnswerKey(questionType, payload) {
+    if (questionType === ASSIGNMENT_QUESTION_TYPES.TRUE_FALSE) {
+      const trueOption = { id: randomUUID(), text: 'True' };
+      const falseOption = { id: randomUUID(), text: 'False' };
+      return {
+        options: [trueOption, falseOption],
+        correctOptionIds: [payload.correctAnswer ? trueOption.id : falseOption.id],
+      };
+    }
+    const options = payload.options.map((option) => ({ id: randomUUID(), text: option.text }));
+    const indexes = [...new Set(payload.correctOptionIndexes ?? [])];
+    if (indexes.some((index) => index >= options.length)) {
+      throw new UnprocessableEntityError('correctOptionIndexes references a non-existing option index');
+    }
+    if (questionType === ASSIGNMENT_QUESTION_TYPES.MULTIPLE_CHOICE && indexes.length !== 1) {
+      throw new UnprocessableEntityError('multiple_choice questions take exactly one correct option');
+    }
+    return {
+      options,
+      correctOptionIds: indexes.map((index) => options[index].id),
+    };
+  }
+
   async function addQuestion(user, assignmentId, payload) {
     const { assignment, course } = await getAuthorizedAssignment(user, assignmentId);
     assertTopicInCourse(course, payload.topicId);
     const orderIndex =
       payload.orderIndex ?? (await assignmentQuestionRepository.nextOrderIndex(assignment._id));
+    const questionType = payload.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
+    let options = [];
+    let correctOptionIds = [];
+    if (OBJECTIVE_QUESTION_TYPES.includes(questionType)) {
+      const answerKey = materializeAnswerKey(questionType, payload);
+      options = answerKey.options;
+      correctOptionIds = answerKey.correctOptionIds;
+    }
     const created = await assignmentQuestionRepository.create({
       assignmentId: assignment._id,
       orderIndex,
@@ -120,6 +154,9 @@ export function createAssignmentsService({
       maxScore: payload.maxScore,
       modelAnswer: payload.modelAnswer ?? null,
       rubricText: payload.rubricText ?? null,
+      questionType,
+      options,
+      correctOptionIds,
     });
     return toPublicAssignmentQuestion(created);
   }
@@ -140,6 +177,39 @@ export function createAssignmentsService({
     if (payload.orderIndex !== undefined) update.orderIndex = payload.orderIndex;
     if (payload.modelAnswer !== undefined) update.modelAnswer = payload.modelAnswer;
     if (payload.rubricText !== undefined) update.rubricText = payload.rubricText;
+    if (payload.correctOptionIndexes !== undefined) {
+      const questionType = question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
+      if (
+        questionType !== ASSIGNMENT_QUESTION_TYPES.MULTIPLE_CHOICE &&
+        questionType !== ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT
+      ) {
+        throw new UnprocessableEntityError(
+          'correctOptionIndexes only applies to multiple_choice and multiple_select questions',
+        );
+      }
+      const indexes = [...new Set(payload.correctOptionIndexes)];
+      const optionCount = (question.options ?? []).length;
+      if (indexes.some((index) => index >= optionCount)) {
+        throw new UnprocessableEntityError('correctOptionIndexes references a non-existing option index');
+      }
+      if (questionType === ASSIGNMENT_QUESTION_TYPES.MULTIPLE_CHOICE && indexes.length !== 1) {
+        throw new UnprocessableEntityError('multiple_choice questions take exactly one correct option');
+      }
+      update.correctOptionIds = indexes.map((index) => question.options[index].id);
+    }
+    if (payload.correctAnswer !== undefined) {
+      const questionType = question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
+      if (questionType !== ASSIGNMENT_QUESTION_TYPES.TRUE_FALSE) {
+        throw new UnprocessableEntityError('correctAnswer only applies to true_false questions');
+      }
+      const target = (question.options ?? []).find(
+        (option) => option.text === (payload.correctAnswer ? 'True' : 'False'),
+      );
+      if (!target) {
+        throw new UnprocessableEntityError('true_false options are missing');
+      }
+      update.correctOptionIds = [target.id];
+    }
     const updated = await assignmentQuestionRepository.updateById(question._id, update);
     return toPublicAssignmentQuestion(updated);
   }

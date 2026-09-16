@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ASSIGNMENT_QUESTION_TYPES } from '../../config/constants.js';
 
 const assignmentQuestionSchema = new mongoose.Schema(
   {
@@ -15,6 +16,22 @@ const assignmentQuestionSchema = new mongoose.Schema(
       required: true,
     },
     maxScore: { type: Number, required: true, min: 0.5, max: 1000 },
+    questionType: {
+      type: String,
+      enum: Object.values(ASSIGNMENT_QUESTION_TYPES),
+      default: ASSIGNMENT_QUESTION_TYPES.ESSAY,
+    },
+    options: {
+      type: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          text: { type: String, required: true, maxlength: 500 },
+        },
+      ],
+      default: [],
+    },
+    correctOptionIds: { type: [String], default: [] },
     modelAnswer: { type: String, default: null, maxlength: 20000 },
     rubricText: { type: String, default: null, maxlength: 20000 },
   },
@@ -33,6 +50,9 @@ export function toPublicAssignmentQuestion(question) {
     questionText: question.questionText,
     topicId: question.topicId.toString(),
     maxScore: question.maxScore,
+    questionType: question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY,
+    options: (question.options ?? []).map((option) => ({ id: option.id, text: option.text })),
+    correctOptionIds: question.correctOptionIds ?? [],
     modelAnswer: question.modelAnswer ?? null,
     rubricText: question.rubricText ?? null,
     createdAt: question.createdAt,

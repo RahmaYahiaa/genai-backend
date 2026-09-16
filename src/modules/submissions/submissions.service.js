@@ -1,6 +1,8 @@
 import {
   ROLES,
   ASSIGNMENT_STATUS,
+  ASSIGNMENT_QUESTION_TYPES,
+  OBJECTIVE_QUESTION_TYPES,
   SUBMISSION_STATUS,
   ERROR_CODES,
 } from '../../config/constants.js';
@@ -103,6 +105,8 @@ export function createSubmissionsService({
         questionText: question.questionText,
         topicId: question.topicId.toString(),
         maxScore: question.maxScore,
+        questionType: question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY,
+        options: (question.options ?? []).map((option) => ({ id: option.id, text: option.text })),
       })),
       canSubmit,
       submission: submission ? toPublicSubmission(submission) : null,
@@ -120,6 +124,7 @@ export function createSubmissionsService({
       prefilledAnswers: answers.map((answer) => ({
         questionId: answer.questionId.toString(),
         answerText: answer.answerText ?? null,
+        selectedOptionIds: answer.selectedOptionIds ?? null,
         imageUrl: answer.imageUrl ?? null,
       })),
     };
@@ -184,9 +189,44 @@ export function createSubmissionsService({
       }));
     const attempt = await getOrCreateLatestAttempt(submission);
 
+    const questionType = question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
+    const isObjective = OBJECTIVE_QUESTION_TYPES.includes(questionType);
+
+    let uniqueSelection = null;
+    if (payload.selectedOptionIds !== undefined) {
+      if (!isObjective) {
+        throw new UnprocessableEntityError(
+          `selectedOptionIds is only accepted for objective questions (multiple_choice, multiple_select, true_false) - this question is ${questionType}`,
+        );
+      }
+      const knownIds = new Set((question.options ?? []).map((option) => option.id));
+      uniqueSelection = [...new Set(payload.selectedOptionIds)];
+      if (uniqueSelection.some((id) => !knownIds.has(id))) {
+        throw new UnprocessableEntityError('selectedOptionIds contains an option that does not belong to this question');
+      }
+      if (questionType !== ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT && uniqueSelection.length !== 1) {
+        throw new UnprocessableEntityError('select exactly one option for multiple_choice and true_false questions');
+      }
+    }
+
     const update = { savedAt: new Date() };
-    if (payload.answerText !== undefined) update.answerText = payload.answerText;
-    if (payload.imageUrl !== undefined) update.imageUrl = payload.imageUrl;
+    if (uniqueSelection !== null) {
+      update.selectedOptionIds = uniqueSelection;
+      update.answerText = null;
+    } else if (payload.answerText !== undefined) {
+      if (isObjective) {
+        throw new UnprocessableEntityError(
+          `answerText is not accepted for ${questionType} questions - use selectedOptionIds`,
+        );
+      }
+      update.answerText = payload.answerText;
+    }
+    if (payload.imageUrl !== undefined) {
+      if (isObjective) {
+        throw new UnprocessableEntityError(`imageUrl is not accepted for ${questionType} questions - use selectedOptionIds`);
+      }
+      update.imageUrl = payload.imageUrl;
+    }
     const answer = await submissionAnswerRepository.upsert(attempt._id, question._id, update);
 
     return {

@@ -314,6 +314,26 @@ async function main() {
     title: 'واجب 2: نظرية المخططات',
   });
   await assignmentsService.addQuestion(instructor, hw2.id, {
+    questionText: 'كل دورة في المخطط هي مسار، وعكس ذلك صحيح أيضًا.',
+    topicId: topicGraphs.id,
+    maxScore: 5,
+    questionType: 'true_false',
+    correctAnswer: false,
+  });
+  await assignmentsService.addQuestion(instructor, hw2.id, {
+    questionText: 'أي مما يلي يضمن أن المخطط ذا الرؤوس n متصل؟',
+    topicId: topicGraphs.id,
+    maxScore: 5,
+    questionType: 'multiple_choice',
+    options: [
+      { text: 'عدد الحواف n-1 على الأقل مع اتصال كل زوج بالمسار' },
+      { text: 'وجود حلقة ذاتية على كل رأس' },
+      { text: 'أن تكون كل الرؤوس معزولة' },
+      { text: 'أن يكون عدد الحواف أقل من n-1' },
+    ],
+    correctOptionIndexes: [0],
+  });
+  await assignmentsService.addQuestion(instructor, hw2.id, {
     questionText: 'ميّز بين المسار والدورة في المخطط مع مثال لكل منهما.',
     topicId: topicGraphs.id,
     maxScore: 10,
@@ -330,7 +350,7 @@ async function main() {
     topicId: topicColoring.id,
     maxScore: 20,
   });
-  log('assignment 2 OPEN (awaiting submissions) - assignment 3 DRAFT');
+  log('assignment 2 OPEN: true_false + multiple_choice (auto-graded) + essay (AI) - assignment 3 DRAFT');
 
   let remedialPublished = 0;
   try {
@@ -536,6 +556,7 @@ async function main() {
       ` ai evaluations ${evaluationCount} | final grades written | audit rows ${auditCount}`,
       ` learning evidence rows ${evidenceCount} | analytics computedAt ${snapshot.computedAt}`,
       ` learning loop  ${remedialPublished} remedial published | diagnostics, tutor, practice, reassessment + gain report seeded`,
+      ` question types  واجب 2 mixes auto-graded objective (true_false + multiple_choice) with AI-graded essay`,
       ` enrollment req 1 pending request (farida -> CS201) awaiting admin approval`,
       ` contract       suspension blocks institutional login (verified live) | admin keeps access`,
       ` personal       ahmed@gmail.com self-served course + material + tutor (no university)`,

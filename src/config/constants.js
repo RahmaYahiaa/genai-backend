@@ -215,6 +215,24 @@ export const SUBMISSION_STATUS = {
   FINALIZED: 'FINALIZED',
 };
 
+export const ASSIGNMENT_QUESTION_TYPES = {
+  MULTIPLE_CHOICE: 'multiple_choice',
+  MULTIPLE_SELECT: 'multiple_select',
+  TRUE_FALSE: 'true_false',
+  SHORT_ANSWER: 'short_answer',
+  LONG_ANSWER: 'long_answer',
+  ESSAY: 'essay',
+  PROBLEM_SOLVING: 'problem_solving',
+};
+
+export const OBJECTIVE_QUESTION_TYPES = [
+  ASSIGNMENT_QUESTION_TYPES.MULTIPLE_CHOICE,
+  ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT,
+  ASSIGNMENT_QUESTION_TYPES.TRUE_FALSE,
+];
+
+export const DETERMINISTIC_GRADER_VERSION = 'deterministic-v1';
+
 export const AI_CONFIDENCE = {
   HIGH: 'HIGH',
   MEDIUM: 'MEDIUM',

@@ -14,6 +14,7 @@ const submissionAnswerSchema = new mongoose.Schema(
       required: true,
     },
     answerText: { type: String, default: null, maxlength: 20000 },
+    selectedOptionIds: { type: [String], default: null },
     imageUrl: { type: String, default: null, maxlength: 2048 },
     savedAt: { type: Date, default: Date.now },
   },
@@ -30,6 +31,7 @@ export function toPublicSubmissionAnswer(answer) {
     attemptId: answer.attemptId.toString(),
     questionId: answer.questionId.toString(),
     answerText: answer.answerText ?? null,
+    selectedOptionIds: answer.selectedOptionIds ?? null,
     imageUrl: answer.imageUrl ?? null,
     savedAt: answer.savedAt ?? null,
   };
