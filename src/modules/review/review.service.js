@@ -1,9 +1,4 @@
-import {
-  AI_CONFIDENCE,
-  SUBMISSION_STATUS,
-  FINAL_GRADE_DECISIONS,
-  AUDIT_ACTIONS,
-} from '../../config/constants.js';
+import { AI_CONFIDENCE, SUBMISSION_STATUS, FINAL_GRADE_DECISIONS, AUDIT_ACTIONS } from '../../config/constants.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { ConflictError, NotFoundError } from '../../shared/errors/index.js';
 import { toPublicSubmission } from '../submissions/submission.model.js';
@@ -17,8 +12,6 @@ const REVIEWABLE_STATUSES = [
   SUBMISSION_STATUS.FINALIZED,
 ];
 
-const FAST_TRACK_STATUSES = [SUBMISSION_STATUS.GRADED, SUBMISSION_STATUS.FINALIZED];
-
 function notEligibleError(detail) {
   return new AppError({
     statusCode: 400,
@@ -31,6 +24,8 @@ function notEligibleError(detail) {
 export function createReviewService({
   coursesService,
   auditService,
+  assignmentEvidenceService,
+  domainEvents,
   authService,
   assignmentRepository,
   assignmentQuestionRepository,
@@ -84,8 +79,9 @@ export function createReviewService({
           misconceptions: evaluation?.misconceptions ?? [],
         };
       });
+      const gradedStatuses = [SUBMISSION_STATUS.GRADED, SUBMISSION_STATUS.FINALIZED];
       const fastTrackEligible =
-        FAST_TRACK_STATUSES.includes(submission.status) &&
+        gradedStatuses.includes(submission.status) &&
         answerRows.length > 0 &&
         answerRows.every((row) => row.confidence === AI_CONFIDENCE.HIGH);
       rows.push({
@@ -111,19 +107,14 @@ export function createReviewService({
         `${profile.firstName} ${profile.lastName}`.trim(),
       ]),
     );
-    rows = rows.map((row) => ({
-      ...row,
-      studentName: nameById.get(row.studentId) ?? 'Unknown student',
-    }));
+    rows = rows.map((row) => ({ ...row, studentName: nameById.get(row.studentId) ?? 'Unknown student' }));
 
     if (query.studentName) {
       const needle = query.studentName.toLowerCase();
       rows = rows.filter((row) => row.studentName.toLowerCase().includes(needle));
     }
     if (query.confidence) {
-      rows = rows.filter((row) =>
-        row.answers.some((answer) => answer.confidence === query.confidence),
-      );
+      rows = rows.filter((row) => row.answers.some((answer) => answer.confidence === query.confidence));
     }
     if (query.approved !== undefined) {
       rows = rows.filter((row) => row.decided === query.approved);
@@ -222,6 +213,20 @@ export function createReviewService({
     return evaluations.reduce((sum, evaluation) => sum + (evaluation.score ?? 0), 0);
   }
 
+  /**
+   * Post-finalize pipeline: write learning_evidence from the FINAL score
+   * (latest attempt only, superseding prior evidence) then fire the domain
+   * events that drive the debounced analytics recompute.
+   */
+  async function finalizeAftermath({ submission, assignment, updated }) {
+    await assignmentEvidenceService.writeForFinalized({ submission: updated, assignment });
+    const courseId = assignment.courseId.toString();
+    const submissionId = submission._id.toString();
+    const studentId = submission.studentId.toString();
+    domainEvents.emit('SubmissionFinalized', { courseId, assignmentId: assignment._id.toString(), submissionId, studentId });
+    domainEvents.emit('LearningEvidenceCreated', { courseId, submissionId, studentId });
+  }
+
   async function approveSubmission(user, submissionId) {
     const { submission, assignment } = await getGradedSubmissionForDecision(user, submissionId);
     const attempt = await submissionAttemptRepository.findLatest(submission._id);
@@ -267,6 +272,7 @@ export function createReviewService({
       aiOriginalScore: await aiTotalFor(submission._id),
       finalScore: finalTotal,
     });
+    await finalizeAftermath({ submission, assignment, updated });
     return toPublicSubmission(updated);
   }
 
@@ -311,6 +317,7 @@ export function createReviewService({
       finalScore: payload.score,
       metadata: { feedback: payload.feedback ?? null },
     });
+    await finalizeAftermath({ submission, assignment, updated });
     return toPublicSubmission(updated);
   }
 
@@ -419,6 +426,7 @@ export function createReviewService({
         aiOriginalScore: await aiTotalFor(id),
         finalScore: finalTotal,
       });
+      await finalizeAftermath({ submission, assignment, updated });
       decided.push(toPublicSubmission(updated));
     }
     return { approved: decided.map((submission) => submission.id), count: decided.length };

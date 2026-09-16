@@ -13,6 +13,8 @@ import { submissionsRouter } from '../../../modules/submissions/index.js';
 import { gradingRouter } from '../../../modules/grading/index.js';
 import { reviewRouter } from '../../../modules/review/index.js';
 import { remedialRouter } from '../../../modules/remedial/index.js';
+import { auditRouter } from '../../../modules/audit/index.js';
+import { analyticsRouter } from '../../../modules/analytics/index.js';
 
 const router = Router();
 
@@ -54,6 +56,15 @@ router.use(reviewRouter);
 // Handles /courses/:courseId/remedial/* routes internally (remedial module -
 // instructor-authored remedial content with a draft-then-publish workflow).
 router.use(remedialRouter);
+
+// Handles GET /courses/:courseId/audit-log (audit module - the governance
+// read model over the recorded actions; students always 403).
+router.use(auditRouter);
+
+// Handles GET /courses/:courseId/analytics, /coverage-gaps and
+// /instructor/home (analytics module - precomputed snapshots refreshed by
+// debounced domain-event recompute).
+router.use(analyticsRouter);
 
 // Feature module routers (diagnostics, tutor, ...) are mounted here
 // by their module composition roots as each module is implemented.

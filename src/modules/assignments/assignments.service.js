@@ -25,6 +25,7 @@ export function createAssignmentsService({
   assignmentQuestionRepository,
   coursesService,
   auditService,
+  domainEvents,
 }) {
   function assertAuthoringRole(course, user) {
     const isAdmin =
@@ -165,6 +166,11 @@ export function createAssignmentsService({
       }
     }
     const updated = await assignmentRepository.updateById(assignment._id, { status: target });
+    domainEvents.emit('AssignmentClosed', {
+      courseId: assignment.courseId.toString(),
+      assignmentId: updated._id.toString(),
+      status: target,
+    });
     return toPublicAssignment(updated);
   }
 

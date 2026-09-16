@@ -10,6 +10,7 @@ import * as submissionRepository from '../submissions/submission.repository.js';
 import * as submissionAttemptRepository from '../submissions/submission-attempt.repository.js';
 import * as submissionAnswerRepository from '../submissions/submission-answer.repository.js';
 import { aiEvaluationRepository } from '../grading/index.js';
+import { assignmentEvidenceService, domainEvents } from '../analytics/index.js';
 import { createReviewService } from './review.service.js';
 import { createReviewController } from './review.controller.js';
 import { createReviewRouter } from './review.routes.js';
@@ -29,6 +30,8 @@ export { finalGradeRepository };
 export const reviewService = createReviewService({
   coursesService,
   auditService,
+  assignmentEvidenceService,
+  domainEvents,
   authService,
   assignmentRepository,
   assignmentQuestionRepository,

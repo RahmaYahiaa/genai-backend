@@ -5,6 +5,7 @@ import * as assignmentQuestionRepository from './assignment-question.repository.
 import { authenticate } from '../auth/index.js';
 import { coursesService } from '../courses/index.js';
 import { auditService } from '../audit/index.js';
+import { domainEvents } from '../analytics/index.js';
 import { submissionsService } from '../submissions/index.js';
 import { createAssignmentsService } from './assignments.service.js';
 import { createAssignmentsController } from './assignments.controller.js';
@@ -30,6 +31,7 @@ export const assignmentsService = createAssignmentsService({
   assignmentQuestionRepository,
   coursesService,
   auditService,
+  domainEvents,
 });
 
 const controller = createAssignmentsController({ assignmentsService, submissionsService });

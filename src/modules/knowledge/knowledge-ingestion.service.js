@@ -22,6 +22,7 @@ export function createKnowledgeIngestionService({
   embeddingProvider,
   textExtractor,
   chunkOptions,
+  domainEvents,
 }) {
   /**
    * Normalized course identifier: coursesService.getCourse returns the public
@@ -94,6 +95,10 @@ export function createKnowledgeIngestionService({
           chunkCount: chunkTexts.length,
           embeddingModel: embeddingProvider.model,
         },
+      });
+      domainEvents.emit('MaterialsUploaded', {
+        courseId: courseDocumentId(course).toString(),
+        materialId: material._id.toString(),
       });
       return toPublicMaterial(ready);
     } catch (error) {

@@ -11,6 +11,7 @@ import { createKnowledgeIngestionService } from './knowledge-ingestion.service.j
 import { createKnowledgeIngestionController } from './knowledge-ingestion.controller.js';
 import { createKnowledgeIngestionRouter } from './knowledge-ingestion.routes.js';
 import { validateSchemas } from '../../shared/validation/validate.middleware.js';
+import { domainEvents } from '../analytics/index.js';
 import {
   createMaterialSchema,
   courseIdParamSchema,
@@ -34,6 +35,7 @@ export const knowledgeIngestionService = createKnowledgeIngestionService({
     maxChars: config.chunk.maxChars,
     overlapChars: config.chunk.overlapChars,
   },
+  domainEvents,
 });
 
 const controller = createKnowledgeIngestionController({ knowledgeIngestionService });
