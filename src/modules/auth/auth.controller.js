@@ -17,6 +17,11 @@ export function createAuthController({ authService }) {
     sendSuccess(res, { data: result });
   });
 
+  const registrationGuidance = asyncHandler(async (req, res) => {
+    const result = await authService.getRegistrationGuidance(req.validated.query.email);
+    sendSuccess(res, { data: result });
+  });
+
   const logout = asyncHandler(async (req, res) => {
     const result = await authService.logout(req.user.id);
     sendSuccess(res, { data: result });
@@ -31,5 +36,5 @@ export function createAuthController({ authService }) {
     sendSuccess(res, { data: user });
   });
 
-  return { register, login, refresh, logout, getProfile, updateProfile };
+  return { register, login, refresh, registrationGuidance, logout, getProfile, updateProfile };
 }

@@ -21,6 +21,14 @@ function emailMatchesInstitutionDomains(email, emailDomains) {
   return emailDomains.some((allowed) => allowed.toLowerCase() === domain);
 }
 
+function isContractGatedUser(user) {
+  return (
+    user.accountType === ACCOUNT_TYPES.INSTITUTIONAL &&
+    user.role !== ROLES.INSTITUTION_ADMIN &&
+    Boolean(user.institutionId)
+  );
+}
+
 /**
  * Auth business logic. Dependencies are injected so the module can be wired
  * and tested explicitly from its composition root.
@@ -71,15 +79,44 @@ export function createAuthService({ repository, institutionService }) {
       accountType = ACCOUNT_TYPES.INSTITUTIONAL;
     } else if (role === ROLES.STUDENT && !effectiveInstitutionId) {
       // Individual learner track: no institution, personal learning space.
+      // A university email can never become a personal account: if the domain
+      // belongs to a registered institution the registrar is redirected to
+      // the institutional track (contract active) or to a personal email
+      // (contract suspended).
+      const domainInstitution = await institutionService.findInstitutionByEmailDomain(
+        emailDomain(email),
+      );
+      if (domainInstitution) {
+        if (domainInstitution.isActive) {
+          throw new ForbiddenError(
+            `This email belongs to ${domainInstitution.name} - students of a contracted university register through their institution, not a personal account`,
+          );
+        }
+        throw new ForbiddenError(
+          `Your university (${domainInstitution.name}) is not contracted with the platform - register with a personal email instead`,
+        );
+      }
       accountType = ACCOUNT_TYPES.INDIVIDUAL;
     } else {
-      const institution = await institutionService.getInstitution(effectiveInstitutionId);
+      const institution = await institutionService.getInstitutionOrNull(effectiveInstitutionId);
+      if (!institution) {
+        throw new NotFoundError('Institution not found');
+      }
+      if (!institution.isActive) {
+        throw new ForbiddenError('Your university is not contracted with the platform');
+      }
+      if (
+        !Array.isArray(institution.emailDomains) ||
+        institution.emailDomains.length === 0
+      ) {
+        throw new ForbiddenError(
+          'Institution registration requires verified email domains - ask your institution admin to configure them',
+        );
+      }
       if (institution.settings?.allowSelfRegistration === false) {
         throw new ForbiddenError('This institution does not allow self-registration');
       }
       if (
-        Array.isArray(institution.emailDomains) &&
-        institution.emailDomains.length > 0 &&
         !emailMatchesInstitutionDomains(email, institution.emailDomains)
       ) {
         throw new ForbiddenError(
@@ -129,9 +166,20 @@ export function createAuthService({ repository, institutionService }) {
     if (!user.isActive) {
       throw new ForbiddenError('This account has been deactivated');
     }
+    if (isContractGatedUser(user)) {
+      const institution = await institutionService.getInstitutionOrNull(user.institutionId);
+      if (!institution || !institution.isActive) {
+        throw new ForbiddenError(
+          'Your university is not currently contracted with the platform - contact your institution admin',
+        );
+      }
+    }
 
     await repository.updateById(user._id, { lastLoginAt: new Date() });
-    const updatedUser = await repository.findById(user._id);
+    // tokenVersion is select:false, so the plain findById lookup would mint
+    // tokens with a stale tv claim (breaking refresh and every guarded call
+    // after a logout->login cycle).
+    const updatedUser = await repository.findByIdWithTokenVersion(user._id);
     return { user: toPublicUser(updatedUser), tokens: issueTokenPair(updatedUser) };
   }
 
@@ -148,6 +196,14 @@ export function createAuthService({ repository, institutionService }) {
     }
     if (!user.isActive) {
       throw new ForbiddenError('This account has been deactivated');
+    }
+    if (isContractGatedUser(user)) {
+      const institution = await institutionService.getInstitutionOrNull(user.institutionId);
+      if (!institution || !institution.isActive) {
+        throw new ForbiddenError(
+          'Your university is not currently contracted with the platform - contact your institution admin',
+        );
+      }
     }
 
     return { user: toPublicUser(user), tokens: issueTokenPair(user) };
@@ -181,5 +237,41 @@ export function createAuthService({ repository, institutionService }) {
     return toPublicUser(user);
   }
 
-  return { register, login, refresh, logout, getProfile, getProfilesByIds, updateProfile };
+  /**
+   * Public pre-registration check: resolves the email domain to a registered
+   * institution so the client can route the user into the right track. A
+   * contracted university email must go through the institutional track; a
+   * suspended one is told to fall back to a personal email.
+   */
+  async function getRegistrationGuidance(email) {
+    const domain = emailDomain(email);
+    const institution = await institutionService.findInstitutionByEmailDomain(domain);
+    if (!institution) {
+      return {
+        emailDomain: domain,
+        institution: null,
+        canUseUniversityEmail: true,
+        recommendedTrack: 'personal',
+        message: 'No university is registered under this email domain - continue with a personal account',
+      };
+    }
+    if (institution.isActive) {
+      return {
+        emailDomain: domain,
+        institution: { id: institution.id, name: institution.name, contractActive: true },
+        canUseUniversityEmail: true,
+        recommendedTrack: 'institutional',
+        message: `This email belongs to ${institution.name} - select it as your institution and register through the university track`,
+      };
+    }
+    return {
+      emailDomain: domain,
+      institution: { id: institution.id, name: institution.name, contractActive: false },
+      canUseUniversityEmail: false,
+      recommendedTrack: 'personal',
+      message: `${institution.name} is not contracted with the platform - register with a personal email instead`,
+    };
+  }
+
+  return { register, login, refresh, logout, getProfile, getProfilesByIds, updateProfile, getRegistrationGuidance };
 }

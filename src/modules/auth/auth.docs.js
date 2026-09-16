@@ -135,37 +135,43 @@
 /**
  * @openapi
  * /auth/register:
- *   post:
- *     summary: Register a new user
- *     description: >-
- *       Dual-track registration. Institutional track: a student provides institutionId
- *       (email must match the institution verified domains when configured) and an
- *       instructor requires institutionId. Individual track: a student omits
- *       institutionId and gets a personal learning space. An institution admin
- *       registers with institutionName, which bootstraps the tenant (optionally with
- *       emailDomains and allowSelfRegistration policy).
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/RegisterRequest'
- *     responses:
- *       201:
- *         description: User registered (and tenant created when institution_admin)
+ *     post:
+ *       summary: Register a new user
+ *       description: >-
+ *         Dual-track registration. Institutional track: a student provides institutionId
+ *         and the email must match the institution verified domains (an institution
+ *         without configured domains rejects member registration), an instructor
+ *         requires institutionId. The institution must be contracted (isActive) -
+ *         registration into a suspended institution is rejected. Individual track: a
+ *         student omits institutionId and gets a personal learning space; a university
+ *         email (a domain registered to any institution) can never be used for a
+ *         personal account - the request is rejected with guidance to the institutional
+ *         track when the university is contracted, or to a personal email when it is
+ *         not. Use GET /auth/registration-guidance first to route the user. An
+ *         institution admin registers with institutionName, which bootstraps the
+ *         tenant (optionally with emailDomains and allowSelfRegistration policy).
+ *       tags: [Auth]
+ *       requestBody:
+ *         required: true
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/AuthSession'
- *       400:
- *         $ref: '#/components/responses/ValidationError'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       409:
- *         $ref: '#/components/responses/Conflict'
- *       429:
- *         $ref: '#/components/responses/RateLimited'
+ *               $ref: '#/components/schemas/RegisterRequest'
+ *       responses:
+ *         201:
+ *           description: User registered (and tenant created when institution_admin)
+ *           content:
+ *             application/json:
+ *               schema:
+ *                 $ref: '#/components/schemas/AuthSession'
+ *         400:
+ *           $ref: '#/components/responses/ValidationError'
+ *         403:
+ *           $ref: '#/components/responses/Forbidden'
+ *         409:
+ *           $ref: '#/components/responses/Conflict'
+ *         429:
+ *           $ref: '#/components/responses/RateLimited'
  */
 
 /**
@@ -173,6 +179,12 @@
  * /auth/login:
  *   post:
  *     summary: Login with email and password
+ *     description: >-
+ *       Institutional students and instructors can only sign in while their
+ *       university is contracted (isActive) - a suspended institution blocks
+ *       member logins with 403. The institution admin always retains access to
+ *       manage the relationship and reactivate the contract. Personal
+ *       (individual) accounts are unaffected.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -191,6 +203,8 @@
  *         $ref: '#/components/responses/ValidationError'
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: University contract suspended (institutional members only)
  *       429:
  *         $ref: '#/components/responses/RateLimited'
  */
@@ -200,6 +214,11 @@
  * /auth/refresh:
  *   post:
  *     summary: Rotate tokens using a refresh token
+ *     description: >-
+ *       Re-issues a token pair and re-checks the university contract:
+ *       suspending an institution immediately blocks refresh for its students
+ *       and instructors (the institution admin keeps access). Personal
+ *       accounts are unaffected.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -218,6 +237,68 @@
  *         $ref: '#/components/responses/ValidationError'
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: University contract suspended (institutional members only)
+ *       429:
+ *         $ref: '#/components/responses/RateLimited'
+ */
+
+/**
+ * @openapi
+ * /auth/registration-guidance:
+ *   get:
+ *     summary: Resolve which registration track an email should use (public pre-check)
+ *     description: >-
+ *       Public endpoint for the registration form: given an email it resolves
+ *       the domain against registered institutions. Returns the matched
+ *       institution with its contract state and the recommended track:
+ *       institutional (contract active, the user selects their university),
+ *       personal (no university behind the domain), or personal with a
+ *       different email (the university exists but is not contracted, so its
+ *       email cannot be used). Call it while the user types their email so the
+ *       form can show the university choice or the fallback message.
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: email
+ *     responses:
+ *       200:
+ *         description: Registration guidance for the email domain
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     emailDomain:
+ *                       type: string
+ *                     institution:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         contractActive:
+ *                           type: boolean
+ *                     canUseUniversityEmail:
+ *                       type: boolean
+ *                     recommendedTrack:
+ *                       type: string
+ *                       enum: [personal, institutional]
+ *                     message:
+ *                       type: string
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
  *       429:
  *         $ref: '#/components/responses/RateLimited'
  */

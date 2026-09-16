@@ -158,7 +158,16 @@
  * /institutions/{institutionId}:
  *   patch:
  *     summary: Update institution profile and governance settings (admin, own institution only)
- *     description: Update name, country, default language, verified email domains, and self-registration policy.
+ *     description: >-
+ *       Update name, country, default language, verified email domains, and
+ *       self-registration policy. isActive is the university contract switch:
+ *       setting it to false suspends the institution - its students and
+ *       instructors are immediately blocked from login and token refresh and
+ *       new member registrations are rejected, while the institution admin
+ *       keeps access to manage the relationship and reactivate
+ *       (isActive: true). Verified email domains also guard the personal
+ *       track: an email under a registered university domain can never be
+ *       used for an individual account (see GET /auth/registration-guidance).
  *     tags: [Academic Structure]
  *     security:
  *       - bearerAuth: []

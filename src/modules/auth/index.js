@@ -8,7 +8,7 @@ import { authenticate, authorize } from './auth.middlewares.js';
 import { createAuthController } from './auth.controller.js';
 import { createAuthService } from './auth.service.js';
 import { createAuthRouter } from './auth.routes.js';
-import { registerSchema, loginSchema, refreshSchema, updateProfileSchema } from './auth.schema.js';
+import { registerSchema, loginSchema, refreshSchema, updateProfileSchema, registrationGuidanceSchema } from './auth.schema.js';
 import { academicStructureService } from '../academic-structure/index.js';
 
 // Brute-force protection on credential endpoints. Successful requests do not
@@ -46,6 +46,7 @@ export const authRouter = createAuthRouter({
     register: validateSchemas({ body: registerSchema }),
     login: validateSchemas({ body: loginSchema }),
     refresh: validateSchemas({ body: refreshSchema }),
+    registrationGuidance: validateSchemas({ query: registrationGuidanceSchema }),
     updateProfile: validateSchemas({ body: updateProfileSchema }),
   },
   rateLimiters: { authSensitive: authSensitiveLimiter },
