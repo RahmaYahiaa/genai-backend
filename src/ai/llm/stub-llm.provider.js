@@ -97,7 +97,7 @@ export function createStubLlmProvider({ modelName }) {
         };
       }
 
-       if (task === 'generate_practice_questions' || task === 'generate_reassessment_questions') {
+      if (task === 'generate_practice_questions' || task === 'generate_reassessment_questions') {
         const count = Math.max(1, Math.min(Number(input.count ?? 3), 10));
         const questions = [];
         for (let i = 0; i < count; i += 1) {
@@ -110,6 +110,69 @@ export function createStubLlmProvider({ modelName }) {
           });
         }
         return { questions };
+      }
+
+      if (task === 'grade_assignment_answer') {
+        const answerText = String(input.answerText ?? '');
+        const maxScore = Number(input.maxScore ?? 10);
+        const keywords = [
+          ...topicKeywords(input.topicTitle ?? ''),
+          ...topicKeywords(String(input.modelAnswer ?? '')),
+        ];
+        const mentionsSource =
+          keywords.length > 0 && keywords.some((word) => answerText.toLowerCase().includes(word));
+
+        let correctness;
+        if (mentionsSource && answerText.length >= 80) {
+          correctness = 'CORRECT';
+        } else if (answerText.length >= 30) {
+          correctness = 'PARTIAL';
+        } else {
+          correctness = 'INCORRECT';
+        }
+
+        const score =
+          correctness === 'CORRECT' ? maxScore : correctness === 'PARTIAL' ? maxScore / 2 : 0;
+
+        const confidence =
+          input.hasModelAnswer || input.hasRubric ? 'HIGH' : 'MEDIUM';
+
+        const misconceptions =
+          correctness === 'INCORRECT'
+            ? [
+                {
+                  code: 'OFF_TOPIC_RESPONSE',
+                  description: `The response does not connect to the core ideas of ${input.topicTitle ?? 'the question'}`,
+                },
+              ]
+            : correctness === 'PARTIAL'
+              ? [
+                  {
+                    code: 'INCOMPLETE_RESPONSE',
+                    description: 'The response is on topic but incomplete',
+                  },
+                ]
+              : [];
+
+        const feedbackText =
+          correctness === 'CORRECT'
+            ? 'Complete and on-topic answer that addresses the key ideas with enough detail.'
+            : correctness === 'PARTIAL'
+              ? 'The answer touches the key ideas but needs more depth and precision.'
+              : 'The answer is too thin or off topic compared with the expected solution.';
+
+        const rubricBreakdown = input.rubricText
+          ? [
+              {
+                criterion: 'overall',
+                awardedScore: score,
+                maxScore,
+                guidance: String(input.rubricText).slice(0, 300),
+              },
+            ]
+          : null;
+
+        return { score, correctness, confidence, feedbackText, misconceptions, rubricBreakdown };
       }
 
       if (task === 'answer_tutor_question') {

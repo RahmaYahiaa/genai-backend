@@ -37,6 +37,7 @@ export function createSubmissionsService({
   assignmentQuestionRepository,
   coursesService,
   enrollmentRepository,
+  gradingQueue,
 }) {
   async function getEnrolledStudentAssignment(user, assignmentId) {
     if (user.role !== ROLES.STUDENT) {
@@ -163,6 +164,7 @@ export function createSubmissionsService({
       status: SUBMISSION_STATUS.SUBMITTED,
       submittedAt,
     });
+    gradingQueue.enqueue(updated._id);
     return toPublicSubmission(updated);
   }
 

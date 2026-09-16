@@ -206,6 +206,21 @@ export const SUBMISSION_STATUS = {
   FINALIZED: 'FINALIZED',
 };
 
+export const AI_CONFIDENCE = {
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+  INSUFFICIENT_EVIDENCE: 'INSUFFICIENT_EVIDENCE',
+};
+
+export const AI_CORRECTNESS = {
+  CORRECT: 'CORRECT',
+  PARTIAL: 'PARTIAL',
+  INCORRECT: 'INCORRECT',
+};
+
+export const GRADING_PROMPT_VERSION = 'grading-v1';
+
 export const AUDIT_ACTIONS = {
   APPROVE: 'APPROVE',
   EDIT: 'EDIT',

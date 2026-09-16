@@ -5,6 +5,7 @@ import * as assignmentRepository from '../assignments/assignment.repository.js';
 import * as assignmentQuestionRepository from '../assignments/assignment-question.repository.js';
 import { authenticate } from '../auth/index.js';
 import { coursesService, enrollmentRepository } from '../courses/index.js';
+import { gradingQueue } from '../grading/index.js';
 import { createSubmissionsService } from './submissions.service.js';
 import { createSubmissionsController } from './submissions.controller.js';
 import { createSubmissionsRouter } from './submissions.routes.js';
@@ -25,6 +26,7 @@ export const submissionsService = createSubmissionsService({
   assignmentQuestionRepository,
   coursesService,
   enrollmentRepository,
+  gradingQueue,
 });
 
 const controller = createSubmissionsController({ submissionsService });

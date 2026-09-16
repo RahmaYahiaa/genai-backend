@@ -89,6 +89,27 @@ export function createCoursesService({
     return course;
   }
 
+  async function ensureInstructorCourseAccess(user, courseId) {
+    const course = await courseRepository.findById(courseId);
+    if (!course) {
+      throw new NotFoundError('Course not found');
+    }
+    if (isAdminOf(user, course.institutionId)) {
+      return course;
+    }
+    const isInstructor =
+      user.role === ROLES.INSTRUCTOR &&
+      (course.staff ?? []).some(
+        (member) =>
+          String(member.userId) === String(user.id) &&
+          member.role === COURSE_STAFF_ROLES.INSTRUCTOR,
+      );
+    if (isInstructor) {
+      return course;
+    }
+    throw new ForbiddenError('Only course instructors and institution admins can access this resource');
+  }
+
   // --- Course CRUD ---
 
   /**
@@ -461,6 +482,7 @@ export function createCoursesService({
     ensureCourseWriteAccess,
     ensureStudentCourseAccess,
     ensureInstitutionalCourseAccess,
+    ensureInstructorCourseAccess,
     updateCourse,
     addTopic,
     updateTopic,
