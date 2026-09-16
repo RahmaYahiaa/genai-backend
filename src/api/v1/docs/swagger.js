@@ -37,6 +37,10 @@ const API_TAGS = [
     name: 'Teaching Assistant',
     description: 'Assignment submissions, AI-suggested grading, instructor approval',
   },
+  {
+    name: 'Remedial',
+    description: 'Instructor-authored remedial content (draft, publish, audience)',
+  },
   { name: 'Audit', description: 'Governance and audit trail' },
 ];
 

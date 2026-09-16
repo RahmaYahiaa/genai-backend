@@ -191,6 +191,28 @@ export function createStubLlmProvider({ modelName }) {
         return { answer, usedChunkIds: contexts.map((context) => context.id) };
       }
 
+      if (task === 'generate_remedial_content') {
+        const excerpts = Array.isArray(input.excerpts) ? input.excerpts : [];
+        const focus = input.misconception
+          ? `the misconception ${input.misconception.code} (${input.misconception.description})`
+          : `the topic ${input.topicTitle}`;
+        const sourceLines = excerpts
+          .map((excerpt) => `- ${String(excerpt.text).slice(0, 200)}`)
+          .join('\n');
+        const title =
+          input.contentType === 'EXTRA_PRACTICE_QUESTIONS'
+            ? `Extra practice on ${input.topicTitle}`
+            : `Focused explanation: ${input.topicTitle}`;
+        const body =
+          input.contentType === 'EXTRA_PRACTICE_QUESTIONS'
+            ? `This practice set targets ${focus}. It is built only from the trusted course material below.\n${sourceLines}\n\n` +
+              `1) Solve a new problem on ${input.topicTitle} using the cited excerpts, then verify each step against the material.\n` +
+              `2) Re-derive the key rule from the excerpts and apply it to a different example.`
+            : `This focused explanation targets ${focus}. It is grounded in the trusted course material below.\n${sourceLines}\n\n` +
+              `Worked example: follow the cited excerpts step by step, then compare your result with the corrected approach described there.`;
+        return { title, body };
+      }
+
       throw new Error(`Stub LLM provider does not implement task "${task}"`);
     },
   };
