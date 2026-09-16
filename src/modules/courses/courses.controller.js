@@ -90,6 +90,54 @@ export function createCoursesController({ coursesService }) {
     sendSuccess(res, { data: result });
   });
 
+  const catalog = asyncHandler(async (req, res) => {
+    const { search, page, limit } = req.validated.query;
+    const { items, total } = await coursesService.listCourseCatalog(req.user, {
+      search,
+      page,
+      limit,
+    });
+    sendSuccess(res, { data: items, meta: buildPaginationMeta({ page, limit, total }) });
+  });
+
+  const requestEnrollment = asyncHandler(async (req, res) => {
+    const request = await coursesService.requestEnrollment(
+      req.user,
+      req.validated.params.courseId,
+      req.validated.body,
+    );
+    sendCreated(res, request);
+  });
+
+  const myEnrollmentRequests = asyncHandler(async (req, res) => {
+    const { status, page, limit } = req.validated.query;
+    const { items, total } = await coursesService.listMyEnrollmentRequests(req.user, {
+      status,
+      page,
+      limit,
+    });
+    sendSuccess(res, { data: items, meta: buildPaginationMeta({ page, limit, total }) });
+  });
+
+  const listEnrollmentRequests = asyncHandler(async (req, res) => {
+    const { status, page, limit } = req.validated.query;
+    const { items, total } = await coursesService.listEnrollmentRequests(req.user, {
+      status,
+      page,
+      limit,
+    });
+    sendSuccess(res, { data: items, meta: buildPaginationMeta({ page, limit, total }) });
+  });
+
+  const decideEnrollmentRequest = asyncHandler(async (req, res) => {
+    const result = await coursesService.decideEnrollmentRequest(
+      req.user,
+      req.validated.params.requestId,
+      req.validated.body,
+    );
+    sendSuccess(res, { data: result });
+  });
+
   const listEnrollments = asyncHandler(async (req, res) => {
     const { page, limit } = req.validated.query;
     const { items, total } = await coursesService.listEnrollments(
@@ -113,5 +161,10 @@ export function createCoursesController({ coursesService }) {
     enroll,
     dropEnrollment,
     listEnrollments,
+    catalog,
+    requestEnrollment,
+    myEnrollmentRequests,
+    listEnrollmentRequests,
+    decideEnrollmentRequest,
   };
 }

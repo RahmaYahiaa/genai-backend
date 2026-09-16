@@ -69,13 +69,38 @@ const userIdParamSchema = z.object({
   userId: objectIdField('userId'),
 });
 
+const enrollmentRequestIdParamSchema = z.object({
+  requestId: objectIdField('requestId'),
+});
+
+const requestEnrollmentSchema = z.object({
+  note: z.string().trim().min(3, 'note must be at least 3 characters').max(500).optional(),
+});
+
+const decideEnrollmentRequestSchema = z.object({
+  decision: z.enum(['APPROVED', 'REJECTED']),
+  note: z.string().trim().min(3, 'note must be at least 3 characters').max(500).optional(),
+});
+
+const catalogQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  search: z.string().trim().min(1).max(100).optional(),
+});
+
+const listRequestsQuerySchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 const studentIdParamSchema = z.object({
   courseId: objectIdField('courseId'),
   studentId: objectIdField('studentId'),
 });
 
 const enrollSchema = z.object({
-  // Required for admins enrolling a student; students enroll themselves.
+  // Required: enrollment is admin-managed (students use enrollment requests).
   studentId: objectIdField('studentId').optional(),
 });
 
@@ -103,4 +128,12 @@ export {
   enrollSchema,
   listCoursesQuerySchema,
   listEnrollmentsQuerySchema,
+};
+
+export {
+  enrollmentRequestIdParamSchema,
+  requestEnrollmentSchema,
+  decideEnrollmentRequestSchema,
+  catalogQuerySchema,
+  listRequestsQuerySchema,
 };

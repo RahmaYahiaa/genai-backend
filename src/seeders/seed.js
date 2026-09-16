@@ -188,6 +188,19 @@ async function main() {
   }
   log(`course ready: CS201 - الرياضيات المتقطعة (1 instructor, ${students.length} students)`);
 
+  const requester = await registerUser({
+    email: 'farida@menoufia.edu.eg',
+    firstName: 'فريدة',
+    lastName: 'محمد',
+    role: ROLES.STUDENT,
+    institutionId: admin.institutionId,
+    languagePreference: LANGUAGES.ARABIC,
+  });
+  await coursesService.requestEnrollment(requester, course.id, {
+    note: 'حابة أبدأ في المقرر ده كمقرر اختياري.',
+  });
+  log('enrollment request: farida -> CS201 (pending admin approval)');
+
   const topicSets = await coursesService.addTopic(instructor, course.id, {
     title: 'نظرية المجموعات',
     order: 1,
@@ -523,6 +536,7 @@ async function main() {
       ` ai evaluations ${evaluationCount} | final grades written | audit rows ${auditCount}`,
       ` learning evidence rows ${evidenceCount} | analytics computedAt ${snapshot.computedAt}`,
       ` learning loop  ${remedialPublished} remedial published | diagnostics, tutor, practice, reassessment + gain report seeded`,
+      ` enrollment req 1 pending request (farida -> CS201) awaiting admin approval`,
       ` contract       suspension blocks institutional login (verified live) | admin keeps access`,
       ` personal       ahmed@gmail.com self-served course + material + tutor (no university)`,
       `               finalized ${snapshot.totals.finalizedCount} | pending ${snapshot.totals.pendingReviewCount} | avg ${snapshot.totals.avgCoursePercentage}%`,
@@ -532,6 +546,7 @@ async function main() {
       '   instructor         hassan.farid@menoufia.edu.eg',
       '   students           sara | mona | nadia | yara | omar | mariam  (@menoufia.edu.eg)',
       '   personal student   ahmed@gmail.com  (personal workspace)',
+      '   requester          farida@menoufia.edu.eg  (pending enrollment request)',
       '────────────────────────────────────────────────────────────',
       ' mariam keeps a DRAFT submission so the student flow can be demoed live.',
       '════════════════════════════════════════════════════════════',

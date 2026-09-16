@@ -59,6 +59,12 @@ export const MATERIAL_STATUSES = {
   STORED_ONLY: 'stored_only',
 };
 
+export const ENROLLMENT_REQUEST_STATUSES = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+};
+
 // --- Learning loop ---
 export const ASSESSMENT_TYPES = {
   DIAGNOSTIC: 'diagnostic',

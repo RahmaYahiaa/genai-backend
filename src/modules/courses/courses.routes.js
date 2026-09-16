@@ -21,6 +21,36 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
 
   router.get('/', validators.listCoursesQuery, controller.list);
 
+  // Static paths first: they must never be shadowed by GET /:courseId.
+  router.get(
+    '/catalog',
+    guards.authorize('student'),
+    validators.catalogQuery,
+    controller.catalog,
+  );
+
+  router.get(
+    '/enrollment-requests',
+    guards.authorize('institution_admin'),
+    validators.listRequestsQuery,
+    controller.listEnrollmentRequests,
+  );
+
+  router.get(
+    '/enrollment-requests/my',
+    guards.authorize('student'),
+    validators.listRequestsQuery,
+    controller.myEnrollmentRequests,
+  );
+
+  router.post(
+    '/enrollment-requests/:requestId/decision',
+    guards.authorize('institution_admin'),
+    validators.enrollmentRequestIdParam,
+    validators.decideEnrollmentRequest,
+    controller.decideEnrollmentRequest,
+  );
+
   router.get('/:courseId', validators.courseIdParam, middlewares.loadCourse, controller.getOne);
 
   router.patch('/:courseId', validators.courseIdParam, validators.updateCourse, controller.update);
@@ -62,6 +92,14 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
     validators.courseIdParam,
     validators.enroll,
     controller.enroll,
+  );
+
+  router.post(
+    '/:courseId/enrollment-request',
+    guards.authorize('student'),
+    validators.courseIdParam,
+    validators.requestEnrollment,
+    controller.requestEnrollment,
   );
 
   router.delete(

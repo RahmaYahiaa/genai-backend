@@ -564,3 +564,195 @@
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
+/**
+ * @openapi
+ * /courses/catalog:
+ *   get:
+ *     summary: Browse the institution course catalog (institutional students)
+ *     description: >-
+ *       Titles-and-metadata catalog of the caller's institution courses so
+ *       students can discover electives and request to join. Course content,
+ *       topics and staff details are never returned here - access to content
+ *       still requires an approved enrollment. Each item carries the caller's
+ *       own state: enrolled (already a member) and myRequestStatus
+ *       (NONE | PENDING | APPROVED | REJECTED) so the UI can render the right
+ *       action. Personal courses are never part of the catalog.
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Case-insensitive filter over title and code
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *     responses:
+ *       200:
+ *         description: Catalog page with per-student join state
+ *       403:
+ *         description: Only institutional students browse the catalog (admins, instructors and individual learners get 403)
+ */
+
+/**
+ * @openapi
+ * /courses/{courseId}/enrollment-request:
+ *   post:
+ *     summary: Submit an enrollment request for an institutional course (student)
+ *     description: >-
+ *       The student asks to join a course of their own institution; the
+ *       institution admin decides. Rules: institutional students only
+ *       (individual learners use personal courses), same institution as the
+ *       course, not already enrolled, and one lifetime request per student
+ *       per course (duplicate or already-decided requests return 409).
+ *       Approval by the admin creates the enrollment.
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 maxLength: 500
+ *                 description: Optional message to the admin explaining the request
+ *     responses:
+ *       201:
+ *         description: Request submitted (status PENDING)
+ *       403:
+ *         description: Not an institutional student of this course's institution
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Already enrolled or a request already exists
+ */
+
+/**
+ * @openapi
+ * /courses/enrollment-requests/my:
+ *   get:
+ *     summary: List my enrollment requests (student)
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: My requests (each with its course title/code)
+ *       403:
+ *         description: Only institutional students have enrollment requests
+ */
+
+/**
+ * @openapi
+ * /courses/enrollment-requests:
+ *   get:
+ *     summary: Manage the institution enrollment-request queue (admin)
+ *     description: >-
+ *       All requests for the admin's institution, newest first, with the
+ *       student name/email and course title/code embedded. Filter by status;
+ *       PENDING is the actionable queue.
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Requests page (scoped to the caller institution)
+ *       403:
+ *         description: Only the institution admin manages requests
+ */
+
+/**
+ * @openapi
+ * /courses/enrollment-requests/{requestId}/decision:
+ *   post:
+ *     summary: Approve or reject an enrollment request (admin, own institution)
+ *     description: >-
+ *       Final decision on a PENDING request. APPROVED creates the enrollment
+ *       immediately (unless the student was enrolled manually meanwhile - the
+ *       request still closes as approved with enrollmentCreated=false).
+ *       REJECTED records the reason for the student to see. Decided requests
+ *       cannot be decided again (409).
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: requestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [decision]
+ *             properties:
+ *               decision:
+ *                 type: string
+ *                 enum: [APPROVED, REJECTED]
+ *               note:
+ *                 type: string
+ *                 maxLength: 500
+ *                 description: Decision note (rejection reason shown to the student)
+ *     responses:
+ *       200:
+ *         description: Decision recorded (enrollmentCreated true when an enrollment was just created)
+ *       403:
+ *         description: Only the institution admin decides
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Request already decided
+ */

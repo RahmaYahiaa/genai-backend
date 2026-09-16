@@ -1,5 +1,6 @@
-import { ROLES, ACCOUNT_TYPES, COURSE_STAFF_ROLES } from '../../config/constants.js';
+import { ROLES, ACCOUNT_TYPES, COURSE_STAFF_ROLES, ENROLLMENT_REQUEST_STATUSES } from '../../config/constants.js';
 import {
+  ConflictError,
   FeatureNotAvailableError,
   ForbiddenError,
   NotFoundError,
@@ -7,6 +8,7 @@ import {
 } from '../../shared/errors/index.js';
 import { toPublicCourse } from './course.model.js';
 import { toPublicEnrollment } from './enrollment.model.js';
+import { toPublicEnrollmentRequest } from './enrollment-request.model.js';
 
 function isAdminOf(user, institutionId) {
   return (
@@ -27,6 +29,7 @@ function isPersonalOwner(course, userId) {
 export function createCoursesService({
   courseRepository,
   enrollmentRepository,
+  enrollmentRequestRepository,
   authService,
   academicStructureService,
 }) {
@@ -424,19 +427,20 @@ export function createCoursesService({
         );
       }
       studentId = student.id;
-    } else {
-      if (requestedStudentId && requestedStudentId !== user.id) {
-        throw new ForbiddenError('Students can only enroll themselves');
-      }
+    } else if (user.role === ROLES.STUDENT) {
       if (
         user.accountType !== ACCOUNT_TYPES.INSTITUTIONAL ||
-        String(user.institutionId) !== String(course.institutionId)
+        !user.institutionId
       ) {
         throw new ForbiddenError(
-          'Only students of this institution can enroll in its courses; individual learners use personal courses',
+          'Individual learners use personal courses - no enrollment needed',
         );
       }
-      studentId = user.id;
+      throw new ForbiddenError(
+        'Course enrollment is managed by the institution admin - submit an enrollment request instead',
+      );
+    } else {
+      throw new ForbiddenError('Only the institution admin enrolls students');
     }
 
     await enrollmentRepository.create({
@@ -456,6 +460,148 @@ export function createCoursesService({
       throw new NotFoundError('Enrollment not found');
     }
     return { dropped: true };
+  }
+
+
+  // --- Course catalog & enrollment requests (student asks, admin decides) ---
+
+  function assertCatalogStudent(user) {
+    if (user.role !== ROLES.STUDENT) {
+      throw new ForbiddenError('Only students browse the course catalog and request enrollment');
+    }
+    if (user.accountType !== ACCOUNT_TYPES.INSTITUTIONAL || !user.institutionId) {
+      throw new ForbiddenError(
+        'Individual learners use personal courses - no enrollment requests needed',
+      );
+    }
+  }
+
+  /**
+   * Catalog of the student's institution courses: titles and availability
+   * metadata only (never content) annotated with the caller's own enrollment
+   * and request state so the UI can render join actions correctly.
+   */
+  async function listCourseCatalog(user, { search, page, limit }) {
+    assertCatalogStudent(user);
+    const skip = (page - 1) * limit;
+    const result = await courseRepository.listInstitutionCourses({
+      institutionId: user.institutionId,
+      q: search,
+      skip,
+      limit,
+    });
+    const [enrolledCourseIds, myRequests] = await Promise.all([
+      enrollmentRepository.listCourseIds(user.id),
+      enrollmentRequestRepository.listByStudent(user.id),
+    ]);
+    const requests = myRequests.items;
+    const enrolledSet = new Set(enrolledCourseIds.map((id) => String(id)));
+    const statusByCourse = new Map(
+      requests.map((request) => [String(request.courseId?._id ?? request.courseId), request.status]),
+    );
+    return {
+      items: result.items.map((course) => ({
+        id: course._id.toString(),
+        title: course.title,
+        code: course.code ?? null,
+        description: course.description ?? null,
+        isActive: course.isActive,
+        enrolled: enrolledSet.has(course._id.toString()),
+        myRequestStatus: statusByCourse.get(course._id.toString()) ?? 'NONE',
+      })),
+      total: result.total,
+    };
+  }
+
+  async function requestEnrollment(user, courseId, { note }) {
+    assertCatalogStudent(user);
+    const course = await getCourseOrNotFound(courseId);
+    if (course.isPersonal) {
+      throw new ForbiddenError('Personal courses do not use enrollment requests');
+    }
+    if (!course.institutionId || String(user.institutionId) !== String(course.institutionId)) {
+      throw new ForbiddenError('Only students of this institution can request its courses');
+    }
+    if (await enrollmentRepository.exists(user.id, course._id)) {
+      throw new ConflictError('Already enrolled in this course');
+    }
+    const existing = await enrollmentRequestRepository.findByStudentAndCourse(user.id, course._id);
+    if (existing) {
+      throw new ConflictError(
+        `You already have a ${String(existing.status).toLowerCase()} request for this course`,
+      );
+    }
+    const request = await enrollmentRequestRepository.create({
+      studentId: user.id,
+      courseId: course._id,
+      institutionId: course.institutionId,
+      studentNote: note ?? null,
+    });
+    return toPublicEnrollmentRequest(request);
+  }
+
+  async function listMyEnrollmentRequests(user, { status, page, limit }) {
+    assertCatalogStudent(user);
+    const skip = (page - 1) * limit;
+    const { items, total } = await enrollmentRequestRepository.listByStudent(user.id, {
+      status,
+      skip,
+      limit,
+    });
+    return { items: items.map(toPublicEnrollmentRequest), total };
+  }
+
+  async function listEnrollmentRequests(admin, { status, page, limit }) {
+    if (admin.role !== ROLES.INSTITUTION_ADMIN || !admin.institutionId) {
+      throw new ForbiddenError('Only the institution admin manages enrollment requests');
+    }
+    const skip = (page - 1) * limit;
+    const { items, total } = await enrollmentRequestRepository.listByInstitution(
+      admin.institutionId,
+      { status, skip, limit },
+    );
+    return { items: items.map(toPublicEnrollmentRequest), total };
+  }
+
+  /**
+   * Admin decision on a pending request. Approval creates the enrollment
+   * (unless the admin already enrolled the student manually, in which case
+   * the request is still closed as approved). Rejection records the reason.
+   */
+  async function decideEnrollmentRequest(admin, requestId, { decision, note }) {
+    if (admin.role !== ROLES.INSTITUTION_ADMIN || !admin.institutionId) {
+      throw new ForbiddenError('Only the institution admin manages enrollment requests');
+    }
+    const request = await enrollmentRequestRepository.findById(requestId);
+    if (!request || String(request.institutionId) !== String(admin.institutionId)) {
+      throw new NotFoundError('Enrollment request not found');
+    }
+    if (request.status !== ENROLLMENT_REQUEST_STATUSES.PENDING) {
+      throw new ConflictError('This enrollment request was already decided');
+    }
+
+    let enrollmentCreated = false;
+    if (decision === ENROLLMENT_REQUEST_STATUSES.APPROVED) {
+      const alreadyEnrolled = await enrollmentRepository.exists(request.studentId, request.courseId);
+      if (!alreadyEnrolled) {
+        await enrollmentRepository.create({
+          studentId: request.studentId,
+          courseId: request.courseId,
+          enrolledBy: admin.id,
+        });
+        enrollmentCreated = true;
+      }
+    }
+
+    const updated = await enrollmentRequestRepository.updateById(requestId, {
+      $set: {
+        status: decision,
+        decisionNote: note ?? null,
+        decidedBy: admin.id,
+        decidedAt: new Date(),
+      },
+    });
+    return { ...toPublicEnrollmentRequest(updated), enrollmentCreated };
   }
 
   async function listEnrollments(user, courseId, { page, limit }) {
@@ -492,5 +638,10 @@ export function createCoursesService({
     enroll,
     dropEnrollment,
     listEnrollments,
+    listCourseCatalog,
+    requestEnrollment,
+    listMyEnrollmentRequests,
+    listEnrollmentRequests,
+    decideEnrollmentRequest,
   };
 }
