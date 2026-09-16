@@ -20,5 +20,13 @@ export function createSubmissionsController({ submissionsService }) {
     sendSuccess(res, { data: submission });
   });
 
-  return { autosaveAnswer, submit };
+  const getResult = asyncHandler(async (req, res) => {
+    const result = await submissionsService.getStudentResult(
+      req.user,
+      req.validated.params.assignmentId,
+    );
+    sendSuccess(res, { data: result });
+  });
+
+  return { autosaveAnswer, submit, getResult };
 }

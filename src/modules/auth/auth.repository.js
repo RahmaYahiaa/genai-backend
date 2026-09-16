@@ -28,6 +28,10 @@ export async function findById(userId) {
   return User.findById(userId).lean();
 }
 
+export async function findByIds(userIds) {
+  return User.find({ _id: { $in: userIds } }).lean();
+}
+
 export async function updateById(userId, update) {
   return User.findByIdAndUpdate(userId, update, { new: true }).lean();
 }

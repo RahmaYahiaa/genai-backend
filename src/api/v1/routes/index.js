@@ -11,6 +11,7 @@ import { reassessmentRouter } from '../../../modules/reassessment/index.js';
 import { assignmentsRouter } from '../../../modules/assignments/index.js';
 import { submissionsRouter } from '../../../modules/submissions/index.js';
 import { gradingRouter } from '../../../modules/grading/index.js';
+import { reviewRouter } from '../../../modules/review/index.js';
 
 const router = Router();
 
@@ -43,6 +44,11 @@ router.use(submissionsRouter);
 // Handles preview-evaluation and /submissions/:id review reads
 // (grading module - the shared AI grading pipeline).
 router.use(gradingRouter);
+
+// Handles /assignments/:id/review, common-mistakes, bulk-approve and the
+// four /submissions/:id decision actions (review module - instructor
+// approval workflow with the audit trail).
+router.use(reviewRouter);
 
 // Feature module routers (diagnostics, tutor, ...) are mounted here
 // by their module composition roots as each module is implemented.

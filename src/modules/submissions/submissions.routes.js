@@ -18,5 +18,11 @@ export function createSubmissionsRouter({ controller, middlewares, validators })
     controller.submit,
   );
 
+  router.get(
+    '/assignments/:assignmentId/result',
+    validators.assignmentIdParam,
+    controller.getResult,
+  );
+
   return router;
 }

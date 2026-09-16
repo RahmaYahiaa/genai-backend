@@ -167,6 +167,11 @@ export function createAuthService({ repository, institutionService }) {
     return toPublicUser(user);
   }
 
+  async function getProfilesByIds(userIds) {
+    const users = await repository.findByIds(userIds);
+    return users.map(toPublicUser);
+  }
+
   async function updateProfile(userId, patch) {
     const update = { $set: patch };
     const user = await repository.updateById(userId, update);
@@ -176,5 +181,5 @@ export function createAuthService({ repository, institutionService }) {
     return toPublicUser(user);
   }
 
-  return { register, login, refresh, logout, getProfile, updateProfile };
+  return { register, login, refresh, logout, getProfile, getProfilesByIds, updateProfile };
 }

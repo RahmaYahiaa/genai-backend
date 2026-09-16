@@ -38,6 +38,7 @@ export function createSubmissionsService({
   coursesService,
   enrollmentRepository,
   gradingQueue,
+  finalGradeRepository,
 }) {
   async function getEnrolledStudentAssignment(user, assignmentId) {
     if (user.role !== ROLES.STUDENT) {
@@ -90,6 +91,10 @@ export function createSubmissionsService({
     const canSubmit =
       assignment.status === ASSIGNMENT_STATUS.OPEN &&
       (!submission || EDITABLE_SUBMISSION_STATUSES.includes(submission.status));
+    const resubmissionRequest =
+      submission && submission.status === SUBMISSION_STATUS.RESUBMISSION_REQUESTED
+        ? await buildResubmissionRequest(submission)
+        : null;
     return {
       ...toPublicAssignment(assignment),
       questions: questions.map((question) => ({
@@ -101,6 +106,64 @@ export function createSubmissionsService({
       })),
       canSubmit,
       submission: submission ? toPublicSubmission(submission) : null,
+      resubmissionRequest,
+    };
+  }
+
+  async function buildResubmissionRequest(submission) {
+    const attempts = await submissionAttemptRepository.listBySubmission(submission._id);
+    const previous = attempts.filter((a) => a.attemptNo < submission.currentAttemptNo).pop();
+    const answers = previous ? await submissionAnswerRepository.listByAttempt(previous._id) : [];
+    return {
+      reason: submission.resubmissionReason ?? null,
+      previousAttemptNo: previous?.attemptNo ?? null,
+      prefilledAnswers: answers.map((answer) => ({
+        questionId: answer.questionId.toString(),
+        answerText: answer.answerText ?? null,
+        imageUrl: answer.imageUrl ?? null,
+      })),
+    };
+  }
+
+  async function getStudentResult(user, assignmentId) {
+    const assignment = await getEnrolledStudentAssignment(user, assignmentId);
+    const submission = await submissionRepository.findByAssignmentAndStudent(
+      assignment._id,
+      user.id,
+    );
+    if (!submission) {
+      return { available: false, reason: 'NOT_SUBMITTED' };
+    }
+    if (submission.status === SUBMISSION_STATUS.RESUBMISSION_REQUESTED) {
+      return {
+        available: false,
+        reason: 'RESUBMISSION_REQUESTED',
+        resubmissionRequest: await buildResubmissionRequest(submission),
+      };
+    }
+    if (submission.status !== SUBMISSION_STATUS.FINALIZED) {
+      return { available: false, reason: 'NOT_FINALIZED' };
+    }
+    if (!assignment.showGradeToStudent) {
+      return { available: false, reason: 'GRADES_HIDDEN' };
+    }
+    const grades = await finalGradeRepository.listBySubmission(submission._id);
+    return {
+      available: true,
+      result: {
+        submissionId: submission._id.toString(),
+        finalScoreTotal: submission.finalScoreTotal ?? null,
+        finalFeedback: submission.finalFeedback ?? null,
+        finalDecision: submission.finalDecision ?? null,
+        decidedAt: submission.updatedAt,
+        answers: grades
+          .filter((grade) => grade.answerId)
+          .map((grade) => ({
+            questionId: grade.questionId ? grade.questionId.toString() : null,
+            finalScore: grade.finalScore,
+            finalFeedback: grade.finalFeedback ?? null,
+          })),
+      },
     };
   }
 
@@ -170,6 +233,7 @@ export function createSubmissionsService({
 
   return {
     getStudentAssignmentView,
+    getStudentResult,
     autosaveAnswer,
     submitAssignment,
   };

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { SUBMISSION_STATUS } from '../../config/constants.js';
+import { SUBMISSION_STATUS, FINAL_GRADE_DECISIONS } from '../../config/constants.js';
 
 const submissionSchema = new mongoose.Schema(
   {
@@ -23,6 +23,14 @@ const submissionSchema = new mongoose.Schema(
     },
     currentAttemptNo: { type: Number, required: true, min: 1, default: 1 },
     submittedAt: { type: Date, default: null },
+    finalScoreTotal: { type: Number, default: null, min: 0, max: 100000 },
+    finalFeedback: { type: String, default: null, maxlength: 4000 },
+    finalDecision: {
+      type: String,
+      enum: [...Object.values(FINAL_GRADE_DECISIONS), null],
+      default: null,
+    },
+    resubmissionReason: { type: String, default: null, maxlength: 2000 },
   },
   { timestamps: true, versionKey: false },
 );
@@ -39,6 +47,10 @@ export function toPublicSubmission(submission) {
     status: submission.status,
     currentAttemptNo: submission.currentAttemptNo,
     submittedAt: submission.submittedAt ?? null,
+    finalScoreTotal: submission.finalScoreTotal ?? null,
+    finalFeedback: submission.finalFeedback ?? null,
+    finalDecision: submission.finalDecision ?? null,
+    resubmissionReason: submission.resubmissionReason ?? null,
     createdAt: submission.createdAt,
     updatedAt: submission.updatedAt,
   };

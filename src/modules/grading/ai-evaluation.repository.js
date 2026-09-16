@@ -12,6 +12,10 @@ export async function listBySubmission(submissionId) {
   return AiEvaluation.find({ submissionId }).sort({ createdAt: 1 }).lean();
 }
 
+export async function listByAssignment(assignmentId) {
+  return AiEvaluation.find({ assignmentId }).sort({ createdAt: 1 }).lean();
+}
+
 export async function listByAssignmentStudent(assignmentId, studentId) {
   return AiEvaluation.find({ assignmentId, studentId }).sort({ createdAt: 1 }).lean();
 }
