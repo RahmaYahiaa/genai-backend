@@ -42,6 +42,12 @@ const COLORING_MATERIAL =
   'نظرية الأربعة ألوان تنص على أن كل مخطط مستوٍ قابل للتلوين بأربعة ألوان على الأكثر. ' +
   'مثال محلول: نلون مخططًا مستويًا صغيرًا رأسًا رأس بالترتيب ثم نتحقق من صحة التلوين عند كل حافة.';
 
+const PYTHON_BASICS_MATERIAL =
+  'ملزمة في أساسيات لغة بايثون. المتغير اسم يشير إلى قيمة محفوظة في الذاكرة ويتم إنشاؤه عند الإسناد مباشرة دون تحديد النوع. ' +
+  'القائمة List مجموعة مرتبة قابلة للتعديل تُكتب بأقواس مربعة مثل [1, 2, 3]، أما الصف Tuple فمرتب لكن غير قابل للتعديل ويُكتب بأقواس عادية مثل (1, 2, 3). ' +
+  'الدالة تُعرَّف بالكلمة المفتاحية def ويمكن أن تستقبل معاملات وترجع قيمة بـ return. ' +
+  'مثال محلول: دالة مجموع تأخذ قائمتين وترجع مجموع العناصر باستخدام حلقة for ودالة sum المدمجة.';
+
 const GOOD_INTERSECTION_ANSWER =
   'تقاطع المجموعتين A و B هو مجموعة كل العناصر المشتركة بينهما، ويُرمز له بـ A ∩ B. ' +
   'مثال محلول: إذا كانت A = {1,2,3} و B = {2,3,4} فإن التقاطع A ∩ B = {2,3} ' +
@@ -435,6 +441,68 @@ async function main() {
   );
   log(`sara recommended next action: ${saraProfile.recommendedNextAction?.message ?? 'n/a'}`);
 
+  log('personal learner: ahmed@gmail.com (no university) opens a personal workspace');
+  const ahmed = await registerUser({
+    email: 'ahmed@gmail.com',
+    firstName: 'أحمد',
+    lastName: 'سيد',
+    role: ROLES.STUDENT,
+    languagePreference: LANGUAGES.ARABIC,
+  });
+  const ahmedCourse = await coursesService.createCourse(ahmed, {
+    title: 'مساحتي الشخصية: أساسيات بايثون',
+    description: 'كورس شخصي يديره الطالب بنفسه خارج أي جامعة.',
+  });
+  const ahmedTopic = await coursesService.addTopic(ahmed, ahmedCourse.id, {
+    title: 'المتغيرات والقوائم',
+    order: 1,
+  });
+  await knowledgeIngestionService.uploadMaterial(ahmed, ahmedCourse.id, {
+    title: 'ملزمة: المتغيرات والقوائم في بايثون',
+    sourceType: 'textbook',
+    mimeType: 'text/plain',
+    fileName: 'python-basics.txt',
+    content: PYTHON_BASICS_MATERIAL,
+  });
+  const ahmedTutorSession = await tutorService.createSession(ahmed, ahmedCourse.id, {
+    topicId: ahmedTopic.id,
+    mode: 'explanation',
+  });
+  await tutorService.askQuestion(ahmed, ahmedCourse.id, ahmedTutorSession.id, {
+    content: 'إيه الفرق بين الليست والتوبل في بايثون مع مثال؟',
+  });
+  log('ahmed: personal course + self-uploaded material + grounded tutor answer');
+
+  const uniGuidance = await authService.getRegistrationGuidance('newcomer@menoufia.edu.eg');
+  log(
+    `registration guidance: university email -> ${uniGuidance.institution.name} (track=${uniGuidance.recommendedTrack})`,
+  );
+  const personalGuidance = await authService.getRegistrationGuidance('newcomer@gmail.com');
+  log(
+    `registration guidance: personal email -> no university (track=${personalGuidance.recommendedTrack})`,
+  );
+
+  log('contract check: suspending the university (isActive=false)...');
+  await academicStructureService.updateInstitution(admin, admin.institutionId, {
+    isActive: false,
+  });
+  let suspendedLoginBlocked = false;
+  try {
+    await authService.login({ email: sara.email, password: DEMO_PASSWORD });
+  } catch {
+    suspendedLoginBlocked = true;
+  }
+  if (!suspendedLoginBlocked) {
+    throw new Error('contract gate failed: sara logged in while the university is suspended');
+  }
+  await authService.login({ email: admin.email, password: DEMO_PASSWORD });
+  log('contract suspended: student login blocked, institution admin still signs in');
+  await academicStructureService.updateInstitution(admin, admin.institutionId, {
+    isActive: true,
+  });
+  await authService.login({ email: sara.email, password: DEMO_PASSWORD });
+  log('contract reactivated: student login restored');
+
   await analyticsService.recomputeCourse(course.id);
 
   const [auditCount, evidenceCount, evaluationCount, snapshot] = await Promise.all([
@@ -455,12 +523,15 @@ async function main() {
       ` ai evaluations ${evaluationCount} | final grades written | audit rows ${auditCount}`,
       ` learning evidence rows ${evidenceCount} | analytics computedAt ${snapshot.computedAt}`,
       ` learning loop  ${remedialPublished} remedial published | diagnostics, tutor, practice, reassessment + gain report seeded`,
+      ` contract       suspension blocks institutional login (verified live) | admin keeps access`,
+      ` personal       ahmed@gmail.com self-served course + material + tutor (no university)`,
       `               finalized ${snapshot.totals.finalizedCount} | pending ${snapshot.totals.pendingReviewCount} | avg ${snapshot.totals.avgCoursePercentage}%`,
       '────────────────────────────────────────────────────────────',
       ` logins (password: ${DEMO_PASSWORD})`,
       '   institution_admin  admin@menoufia.edu.eg',
       '   instructor         hassan.farid@menoufia.edu.eg',
       '   students           sara | mona | nadia | yara | omar | mariam  (@menoufia.edu.eg)',
+      '   personal student   ahmed@gmail.com  (personal workspace)',
       '────────────────────────────────────────────────────────────',
       ' mariam keeps a DRAFT submission so the student flow can be demoed live.',
       '════════════════════════════════════════════════════════════',

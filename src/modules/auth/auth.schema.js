@@ -70,6 +70,10 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(20, 'refreshToken is required'),
 });
 
+export const registrationGuidanceSchema = z.object({
+  email: emailField,
+});
+
 export const updateProfileSchema = z
   .object({
     firstName: nameField('firstName').optional(),

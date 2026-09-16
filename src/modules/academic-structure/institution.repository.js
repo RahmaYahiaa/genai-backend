@@ -13,6 +13,13 @@ export async function findById(institutionId) {
   return Institution.findById(institutionId).lean();
 }
 
+export async function findByEmailDomain(domain) {
+  if (!domain) return null;
+  const normalized = String(domain).trim().toLowerCase();
+  if (!normalized) return null;
+  return Institution.findOne({ emailDomains: normalized }).lean();
+}
+
 export async function updateById(institutionId, update) {
   return Institution.findByIdAndUpdate(institutionId, update, { new: true }).lean();
 }

@@ -56,6 +56,17 @@ export function createAcademicStructureService({ institutionRepository, academic
     return institutionRepository.requireActiveById(institutionId);
   }
 
+  async function getInstitutionOrNull(institutionId) {
+    if (!institutionId) return null;
+    const institution = await institutionRepository.findById(institutionId);
+    return institution ? toPublicInstitution(institution) : null;
+  }
+
+  async function findInstitutionByEmailDomain(domain) {
+    const institution = await institutionRepository.findByEmailDomain(domain);
+    return institution ? toPublicInstitution(institution) : null;
+  }
+
   /** Admin-facing update of own institution profile and governance settings. */
   async function updateInstitution(caller, institutionId, patch) {
     // Scope guard: an admin may only update their own institution.
@@ -173,6 +184,8 @@ export function createAcademicStructureService({ institutionRepository, academic
     createInstitution,
     deleteInstitution,
     getInstitution,
+    getInstitutionOrNull,
+    findInstitutionByEmailDomain,
     updateInstitution,
     createUnit,
     getUnitInScope,
