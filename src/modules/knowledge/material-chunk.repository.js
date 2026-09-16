@@ -64,10 +64,16 @@ export async function vectorSearch({ courseId, queryVector, topK }) {
           },
         },
       ]);
-      return results.map((doc) => ({
-        chunk: toPublicChunk({ ...doc, _id: doc._id }),
-        score: doc.score ?? 0,
-      }));
+      // auto mode: a SUCCESSFUL but EMPTY atlas result is not trusted as
+      // "no evidence" - the index may still be building, stale, or
+      // misconfigured. The exact scan below is cheap at demo scale and can
+      // only return rows the atlas path would have returned anyway.
+      if (results.length > 0 || mode === 'atlas') {
+        return results.map((doc) => ({
+          chunk: toPublicChunk({ ...doc, _id: doc._id }),
+          score: doc.score ?? 0,
+        }));
+      }
     } catch (error) {
       if (mode === 'atlas') throw error;
       atlasUnavailable = true;
