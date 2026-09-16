@@ -63,3 +63,12 @@ export class ServiceUnavailableError extends AppError {
     super({ statusCode: 503, code: ERROR_CODES.INTERNAL_ERROR, message });
   }
 }
+
+export class FeatureNotAvailableError extends AppError {
+  constructor(
+    message = 'This feature is not available for personal courses',
+    code = ERROR_CODES.FEATURE_NOT_AVAILABLE_FOR_PERSONAL_COURSE,
+  ) {
+    super({ statusCode: 403, code, message });
+  }
+}

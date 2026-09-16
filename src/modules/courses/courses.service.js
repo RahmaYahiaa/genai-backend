@@ -1,5 +1,10 @@
 import { ROLES, ACCOUNT_TYPES, COURSE_STAFF_ROLES } from '../../config/constants.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/index.js';
+import {
+  FeatureNotAvailableError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '../../shared/errors/index.js';
 import { toPublicCourse } from './course.model.js';
 import { toPublicEnrollment } from './enrollment.model.js';
 
@@ -65,6 +70,23 @@ export function createCoursesService({
     if (!isAdminOf(user, course.institutionId)) {
       throw new NotFoundError('Course not found');
     }
+  }
+
+  async function ensureInstitutionalCourseAccess(user, courseId) {
+    const course = await courseRepository.findById(courseId);
+    if (!course) {
+      throw new NotFoundError('Course not found');
+    }
+    if (user.accountType === ACCOUNT_TYPES.INDIVIDUAL) {
+      throw new FeatureNotAvailableError();
+    }
+    if (course.isPersonal || !course.institutionId) {
+      throw new FeatureNotAvailableError();
+    }
+    if (!user.institutionId || String(user.institutionId) !== String(course.institutionId)) {
+      throw new NotFoundError('Course not found');
+    }
+    return course;
   }
 
   // --- Course CRUD ---
@@ -438,6 +460,7 @@ export function createCoursesService({
     getCourse,
     ensureCourseWriteAccess,
     ensureStudentCourseAccess,
+    ensureInstitutionalCourseAccess,
     updateCourse,
     addTopic,
     updateTopic,
