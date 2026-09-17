@@ -91,6 +91,25 @@ export function createAssignmentsService({
   }
 
   async function listAssignments(user, courseId, query) {
+    if (user.role === ROLES.STUDENT) {
+      const course = await coursesService.ensureStudentCourseAccess(user, courseId);
+      if (course.isPersonal || query.status === ASSIGNMENT_STATUS.DRAFT) {
+        return { items: [], total: 0 };
+      }
+      const { items, total } = await assignmentRepository.listByCourse({
+        courseId,
+        status: query.status,
+        skip: (query.page - 1) * query.limit,
+        limit: query.limit,
+      });
+      const visible = query.status
+        ? items
+        : items.filter((item) => item.status !== ASSIGNMENT_STATUS.DRAFT);
+      return {
+        items: visible.map(toPublicAssignment),
+        total: query.status ? total : visible.length,
+      };
+    }
     await getCourseForAuthoring(user, courseId);
     const { items, total } = await assignmentRepository.listByCourse({
       courseId,
