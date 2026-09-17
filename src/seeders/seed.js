@@ -90,6 +90,32 @@ async function submitAnswer(student, assignmentId, questionId, answerText) {
   return submissionsService.submitAssignment(student, assignmentId);
 }
 
+const SEED_LLM_PACING_MS = 4000;
+const SEED_LLM_RETRY_DELAYS_MS = [45000, 45000];
+
+function isProviderRateLimitError(error) {
+  return /429|rate limit|All LLM providers failed/i.test(String(error?.message ?? error));
+}
+
+async function withLlmRetry(label, fn) {
+  for (let attempt = 0; attempt <= SEED_LLM_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const result = await fn();
+      await new Promise((resolve) => setTimeout(resolve, SEED_LLM_PACING_MS));
+      return result;
+    } catch (error) {
+      if (attempt === SEED_LLM_RETRY_DELAYS_MS.length || !isProviderRateLimitError(error)) {
+        throw error;
+      }
+      const waitSeconds = SEED_LLM_RETRY_DELAYS_MS[attempt] / 1000;
+      console.log(
+        `\n[seed] ${label}: provider rate limit hit - waiting ${waitSeconds}s then retrying (attempt ${attempt + 2})...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, SEED_LLM_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
 async function main() {
   const reset = process.argv.includes('--reset');
   await connectDatabase();
@@ -384,86 +410,101 @@ async function main() {
 
   log('learning loop: diagnostics, tutor, practice, reassessment for the students...');
 
-  const saraDiagnostic = await learnerDiagnosticService.startDiagnostic(sara, course.id, {
-    topicIds: [topicSets.id],
-    questionsPerTopic: 2,
-  });
-  const diagnosticQuestions = await learnerDiagnosticService.getDiagnostic(
-    sara,
-    course.id,
-    saraDiagnostic.id,
-  );
-  for (const question of diagnosticQuestions.questions) {
-    await learnerDiagnosticService.submitAnswer(sara, course.id, saraDiagnostic.id, {
-      questionId: question.id,
-      content:
-        'تقاطع المجموعتين A و B هو مجموعة كل العناصر المشتركة بينهما ويُرمز له بـ A ∩ B، ' +
-        'ومثاله {1,2} ∩ {2,3} = {2} كما في المحاضرة.',
+  await withLlmRetry('sara diagnostic', async () => {
+    const saraDiagnostic = await learnerDiagnosticService.startDiagnostic(sara, course.id, {
+      topicIds: [topicSets.id],
+      questionsPerTopic: 2,
     });
-  }
-  log('sara: diagnostic completed on نظرية المجموعات (evidence written)');
+    const diagnosticQuestions = await learnerDiagnosticService.getDiagnostic(
+      sara,
+      course.id,
+      saraDiagnostic.id,
+    );
+    for (const question of diagnosticQuestions.questions) {
+      await learnerDiagnosticService.submitAnswer(sara, course.id, saraDiagnostic.id, {
+        questionId: question.id,
+        content:
+          'تقاطع المجموعتين A و B هو مجموعة كل العناصر المشتركة بينهما ويُرمز له بـ A ∩ B، ' +
+          'ومثاله {1,2} ∩ {2,3} = {2} كما في المحاضرة.',
+      });
+    }
+    log('sara: diagnostic completed on نظرية المجموعات (evidence written)');
+  });
 
-  const monaDiagnostic = await learnerDiagnosticService.startDiagnostic(mona, course.id, {
-    topicIds: [topicGraphs.id],
-    questionsPerTopic: 2,
-  });
-  const monaQuestions = await learnerDiagnosticService.getDiagnostic(mona, course.id, monaDiagnostic.id);
-  await learnerDiagnosticService.submitAnswer(mona, course.id, monaDiagnostic.id, {
-    questionId: monaQuestions.questions[0].id,
-    content: 'مش فاكرة حاجة، صدقني',
-  });
-  for (const question of monaQuestions.questions.slice(1)) {
+  await withLlmRetry('mona diagnostic', async () => {
+
+    const monaDiagnostic = await learnerDiagnosticService.startDiagnostic(mona, course.id, {
+      topicIds: [topicGraphs.id],
+      questionsPerTopic: 2,
+    });
+    const monaQuestions = await learnerDiagnosticService.getDiagnostic(mona, course.id, monaDiagnostic.id);
     await learnerDiagnosticService.submitAnswer(mona, course.id, monaDiagnostic.id, {
-      questionId: question.id,
-      content:
-        'المسار هو سلسلة حواف متتالية بين رأسين، والدورة مسار مغلق يعود إلى نقطة البداية، ' +
-        'ومثال الدورة هو المثلث بين ثلاثة رؤوس.',
+      questionId: monaQuestions.questions[0].id,
+      content: 'مش فاكرة حاجة، صدقني',
     });
-  }
-  log('mona: diagnostic completed on نظرية المخططات (one weak answer, one strong)');
+    for (const question of monaQuestions.questions.slice(1)) {
+      await learnerDiagnosticService.submitAnswer(mona, course.id, monaDiagnostic.id, {
+        questionId: question.id,
+        content:
+          'المسار هو سلسلة حواف متتالية بين رأسين، والدورة مسار مغلق يعود إلى نقطة البداية، ' +
+          'ومثال الدورة هو المثلث بين ثلاثة رؤوس.',
+      });
+    }
+    log('mona: diagnostic completed on نظرية المخططات (one weak answer, one strong)');
+  });
 
-  const monaTutorSession = await tutorService.createSession(mona, course.id, {
-    topicId: topicGraphs.id,
-    mode: 'explanation',
-  });
-  await tutorService.askQuestion(mona, course.id, monaTutorSession.id, {
-    content: 'إيه الفرق بين المسار والدورة في المخطط مع مثال؟',
-  });
-  log('mona: tutor session answered from the trusted Arabic lecture (grounded + cited)');
+  await withLlmRetry('mona tutor', async () => {
 
-  const saraPractice = await practiceService.startSession(sara, course.id, {
-    topicId: topicColoring.id,
-    questionsCount: 2,
-  });
-  const practiceSession = await practiceService.getSession(sara, course.id, saraPractice.id);
-  const practiceAnswers = [
-    'تلوين المخطط هو إسناد ألوان إلى الرؤوس بحيث لا يتشارك رأسان متجاوران في اللون نفسه، ' +
-      'والعدد الكرومي هو أقل عدد ألوان يكفي لتلوين المخطط بالكامل.',
-    'نلوّن الرؤوس بالترتيب ونختار لونًا مختلفًا عن ألوان الجيران، ونكرر حتى تتحقق كل الحواف ' +
-      'ثم نتحقق من صحة التلوين عند كل حافة كما في المثال المحلول.',
-  ];
-  for (const [index, question] of practiceSession.questions.entries()) {
-    await practiceService.submitAnswer(sara, course.id, saraPractice.id, {
-      questionId: question.id,
-      content: practiceAnswers[index % practiceAnswers.length],
+    const monaTutorSession = await tutorService.createSession(mona, course.id, {
+      topicId: topicGraphs.id,
+      mode: 'explanation',
     });
-  }
-  log('sara: practice session completed on تلوين المخططات');
-
-  const saraReassessment = await reassessmentService.startSession(sara, course.id, {
-    topicId: topicSets.id,
-    questionsCount: 2,
-  });
-  for (const question of saraReassessment.questions) {
-    await reassessmentService.submitAnswer(sara, course.id, saraReassessment.id, {
-      questionId: question.id,
-      content:
-        'اتحاد المجموعتين A و B هو مجموعة كل العناصر التي تنتمي إلى A أو B أو كليهما ويكتب A ∪ B، ' +
-        'والتقاطع يقتصر على العناصر المشتركة، ومثال: {1,2} ∪ {2,3} = {1,2,3} و {1,2} ∩ {2,3} = {2}.',
+    await tutorService.askQuestion(mona, course.id, monaTutorSession.id, {
+      content: 'إيه الفرق بين المسار والدورة في المخطط مع مثال؟',
     });
-  }
-  await reassessmentService.getLearningGain(sara, course.id);
-  log('sara: reassessment completed on نظرية المجموعات + learning-gain report ready');
+    log('mona: tutor session answered from the trusted Arabic lecture (grounded + cited)');
+  });
+
+  await withLlmRetry('sara practice', async () => {
+
+    const saraPractice = await practiceService.startSession(sara, course.id, {
+      topicId: topicColoring.id,
+      questionsCount: 2,
+    });
+    const practiceSession = await practiceService.getSession(sara, course.id, saraPractice.id);
+    const practiceAnswers = [
+      'تلوين المخطط هو إسناد ألوان إلى الرؤوس بحيث لا يتشارك رأسان متجاوران في اللون نفسه، ' +
+        'والعدد الكرومي هو أقل عدد ألوان يكفي لتلوين المخطط بالكامل.',
+      'نلوّن الرؤوس بالترتيب ونختار لونًا مختلفًا عن ألوان الجيران، ونكرر حتى تتحقق كل الحواف ' +
+        'ثم نتحقق من صحة التلوين عند كل حافة كما في المثال المحلول.',
+    ];
+    for (const [index, question] of practiceSession.questions.entries()) {
+      await practiceService.submitAnswer(sara, course.id, saraPractice.id, {
+        questionId: question.id,
+        content: practiceAnswers[index % practiceAnswers.length],
+      });
+    }
+    log('sara: practice session completed on تلوين المخططات');
+  });
+
+  await withLlmRetry('sara reassessment', async () => {
+
+    const saraReassessment = await reassessmentService.startSession(sara, course.id, {
+      topicId: topicSets.id,
+      questionsCount: 2,
+    });
+    for (const question of saraReassessment.questions) {
+      await reassessmentService.submitAnswer(sara, course.id, saraReassessment.id, {
+        questionId: question.id,
+        content:
+          'اتحاد المجموعتين A و B هو مجموعة كل العناصر التي تنتمي إلى A أو B أو كليهما ويكتب A ∪ B، ' +
+          'والتقاطع يقتصر على العناصر المشتركة، ومثال: {1,2} ∪ {2,3} = {1,2,3} و {1,2} ∩ {2,3} = {2}.',
+      });
+    }
+    await reassessmentService.getLearningGain(sara, course.id);
+    log('sara: reassessment completed on نظرية المجموعات + learning-gain report ready');
+  });
+
 
   const saraProfile = await learnerModelService.getLearnerModel(sara, course.id);
   log(
