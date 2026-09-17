@@ -6,10 +6,18 @@ const previewEvaluationSchema = z.object({
   trialAnswer: z.string().trim().min(1, 'trialAnswer is required').max(20000),
 });
 
+// Real models answer with varying casing/whitespace; normalize before the
+// strict enum so validation rejects wrong values, not formatting.
+const upperEnum = (values) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim().toUpperCase() : value),
+    z.enum(values),
+  );
+
 const llmGradingOutputSchema = z.object({
   score: z.coerce.number().min(0).max(1000),
-  correctness: z.enum(Object.values(AI_CORRECTNESS)),
-  confidence: z.enum([AI_CONFIDENCE.HIGH, AI_CONFIDENCE.MEDIUM, AI_CONFIDENCE.LOW]),
+  correctness: upperEnum(Object.values(AI_CORRECTNESS)),
+  confidence: upperEnum([AI_CONFIDENCE.HIGH, AI_CONFIDENCE.MEDIUM, AI_CONFIDENCE.LOW]),
   feedbackText: z.string().trim().min(1).max(8000),
   misconceptions: z
     .array(
