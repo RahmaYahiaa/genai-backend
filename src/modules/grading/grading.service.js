@@ -1,4 +1,13 @@
-import { GRADING_PROMPT_VERSION, SUBMISSION_STATUS, AI_CONFIDENCE } from '../../config/constants.js';
+import {
+  GRADING_PROMPT_VERSION,
+  SUBMISSION_STATUS,
+  AI_CONFIDENCE,
+  AI_CORRECTNESS,
+  ASSIGNMENT_QUESTION_TYPES,
+  OBJECTIVE_QUESTION_TYPES,
+  DETERMINISTIC_GRADER_VERSION,
+} from '../../config/constants.js';
+import { AppError } from '../../shared/errors/app-error.js';
 import { NotFoundError } from '../../shared/errors/index.js';
 import { llmGradingOutputSchema } from './grading.schema.js';
 import { toPublicAiEvaluation } from './ai-evaluation.model.js';
@@ -6,6 +15,16 @@ import { logger } from '../../config/logger.js';
 import { toPublicSubmission } from '../submissions/submission.model.js';
 
 const FALLBACK_MODEL_VERSION = 'rules-v1-fallback';
+
+// Real providers receive system+user (Groq JSON mode also requires the word
+// "JSON" inside the messages). The deterministic stub keys off `task` and
+// parses `user`, so both provider kinds share one call shape.
+const GRADING_SYSTEM_PROMPT =
+  'You are a strict exam grader for an academic course. ' +
+  'Score the student answer against the question, the model answer, the rubric and the trusted course excerpts. ' +
+  'Never invent knowledge beyond these sources. ' +
+  'Respond with JSON only, matching exactly: ' +
+  '{"score":<number between 0 and maxScore>,"correctness":"CORRECT|PARTIAL|INCORRECT","confidence":"HIGH|MEDIUM|LOW","feedbackText":"<concise actionable feedback>","misconceptions":[{"code":"<short code>","description":"<what the student got wrong>"}]}';
 
 function buildSources(question, contexts) {
   return {
@@ -29,6 +48,47 @@ function insufficientEvaluation(sources, reason) {
     sourcesUsed: { ...sources, reason },
     modelVersion: FALLBACK_MODEL_VERSION,
     promptVersion: GRADING_PROMPT_VERSION,
+  };
+}
+
+/**
+ * Deterministic scoring for objective question types (multiple_choice,
+ * multiple_select, true_false). No AI call: the stored answer key decides.
+ * multiple_select earns partial credit: (correct - wrong) / total correct.
+ */
+function deterministicEvaluation(question, answer) {
+  const selected = Array.isArray(answer.selectedOptionIds) ? [...new Set(answer.selectedOptionIds)] : [];
+  const correctIds = question.correctOptionIds ?? [];
+  const correctSet = new Set(correctIds);
+  const correctSelected = selected.filter((id) => correctSet.has(id)).length;
+  const wrongSelected = selected.length - correctSelected;
+  const ratio = correctIds.length === 0 ? 0 : Math.max(0, (correctSelected - wrongSelected) / correctIds.length);
+  const score = Math.round(ratio * question.maxScore * 100) / 100;
+  const correctness =
+    ratio >= 1 ? AI_CORRECTNESS.CORRECT : ratio <= 0 ? AI_CORRECTNESS.INCORRECT : AI_CORRECTNESS.PARTIAL;
+  const feedbackText =
+    selected.length === 0
+      ? `Auto-graded answer: nothing was selected (score 0/${question.maxScore}).`
+      : `Auto-graded ${question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY} answer: ${correctSelected}/${correctIds.length} correct option(s) selected${wrongSelected > 0 ? `, ${wrongSelected} incorrect` : ''} (score ${score}/${question.maxScore}).`;
+  return {
+    score,
+    correctness,
+    confidence: AI_CONFIDENCE.HIGH,
+    feedbackText,
+    misconceptions: [],
+    rubricBreakdown: null,
+    sourcesUsed: {
+      question: true,
+      model_answer: false,
+      rubric: false,
+      retrievedChunks: 0,
+      chunkIds: [],
+      deterministic: true,
+      selectedCount: selected.length,
+      correctCount: correctIds.length,
+    },
+    modelVersion: DETERMINISTIC_GRADER_VERSION,
+    promptVersion: DETERMINISTIC_GRADER_VERSION,
   };
 }
 
@@ -67,16 +127,19 @@ export function createGradingService({
       excerpts: contexts.map((context) => ({ id: context.chunkId, text: context.snippet })),
       answerText,
     };
+    // Free-tier providers rate-limit per minute; a patient retry ladder
+    // (immediate, +2.5s, +12s) absorbs the common windows.
+    const retryDelaysMs = [2500, 12000];
     let lastError = null;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
       if (attempt > 0) {
-        // Rate-limited providers need a beat between attempts.
-        await new Promise((resolve) => setTimeout(resolve, 2500));
+        await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt - 1]));
       }
       try {
         const raw = await llmProvider.completeJson({
           task: 'grade_assignment_answer',
-          payload,
+          system: GRADING_SYSTEM_PROMPT,
+          user: JSON.stringify(payload),
         });
         return llmGradingOutputSchema.parse(raw);
       } catch (error) {
@@ -84,7 +147,7 @@ export function createGradingService({
         logger.warn(`LLM grading attempt ${attempt + 1} failed: ${error?.message ?? 'unknown error'}`);
       }
     }
-    throw lastError ?? new Error('grading model output failed twice');
+    throw lastError ?? new Error('grading model output failed three times');
   }
 
   async function gradeAnswerCore({ courseId, topicTitle, question, answerText }) {
@@ -138,6 +201,14 @@ export function createGradingService({
     if (!question || String(question.assignmentId) !== String(assignment._id)) {
       throw new NotFoundError('Question not found');
     }
+    const questionType = question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
+    if (OBJECTIVE_QUESTION_TYPES.includes(questionType)) {
+      throw new AppError({
+        statusCode: 422,
+        code: 'VALIDATION_ERROR',
+        message: 'Objective questions are auto-graded deterministically - preview is only for subjective questions',
+      });
+    }
     const course = await courseRepository.findById(assignment.courseId);
     const topicTitle =
       (course?.topics ?? []).find((t) => String(t._id) === String(question.topicId))?.title ?? '';
@@ -173,19 +244,24 @@ export function createGradingService({
       if (!question) continue;
       const topicTitle =
         (course?.topics ?? []).find((t) => String(t._id) === String(question.topicId))?.title ?? '';
+      const questionType = question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
       let evaluation;
-      try {
-        evaluation = await gradeAnswerCore({
-          courseId: assignment.courseId,
-          topicTitle,
-          question,
-          answerText: answer.answerText ?? '',
-        });
-      } catch {
-        evaluation = insufficientEvaluation(
-          { question: true, model_answer: false, rubric: false, retrievedChunks: 0, chunkIds: [] },
-          'GRADING_ERROR',
-        );
+      if (OBJECTIVE_QUESTION_TYPES.includes(questionType)) {
+        evaluation = deterministicEvaluation(question, answer);
+      } else {
+        try {
+          evaluation = await gradeAnswerCore({
+            courseId: assignment.courseId,
+            topicTitle,
+            question,
+            answerText: answer.answerText ?? '',
+          });
+        } catch {
+          evaluation = insufficientEvaluation(
+            { question: true, model_answer: false, rubric: false, retrievedChunks: 0, chunkIds: [] },
+            'GRADING_ERROR',
+          );
+        }
       }
       await aiEvaluationRepository.create({
         answerId: answer._id,
@@ -241,6 +317,7 @@ export function createGradingService({
           id: answer._id.toString(),
           questionId: answer.questionId.toString(),
           answerText: answer.answerText ?? null,
+          selectedOptionIds: answer.selectedOptionIds ?? null,
           imageUrl: answer.imageUrl ?? null,
           savedAt: answer.savedAt ?? null,
           question: question
@@ -250,6 +327,9 @@ export function createGradingService({
                 questionText: question.questionText,
                 topicId: question.topicId.toString(),
                 maxScore: question.maxScore,
+                questionType: question.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY,
+                options: (question.options ?? []).map((option) => ({ id: option.id, text: option.text })),
+                correctOptionIds: question.correctOptionIds ?? [],
                 modelAnswer: question.modelAnswer ?? null,
                 rubricText: question.rubricText ?? null,
               }

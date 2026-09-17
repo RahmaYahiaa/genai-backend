@@ -149,7 +149,13 @@ export function createGroqLlmProvider({
     }
     if (!response.ok) {
       resolvedModel = null;
-      throw new AiProviderError(`LLM provider returned status ${response.status}`);
+      let detail = '';
+      try {
+        detail = (await response.text()).replace(/\s+/g, ' ').slice(0, 180);
+      } catch {
+        // body unreadable - status alone still surfaces
+      }
+      throw new AiProviderError(`LLM provider returned status ${response.status}${detail ? `: ${detail}` : ''}`);
     }
     const payload = await response.json();
     return payload?.choices?.[0]?.message?.content ?? '';
