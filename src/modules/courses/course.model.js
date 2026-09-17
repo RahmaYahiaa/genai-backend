@@ -79,8 +79,13 @@ const courseSchema = new mongoose.Schema(
   },
 );
 
-// Course code is unique within an institution; personal courses (no code) are skipped.
-courseSchema.index({ institutionId: 1, code: 1 }, { unique: true, sparse: true });
+// Course code is unique within an institution. Courses without a code
+// (personal learning spaces) are excluded, otherwise every code-less course
+// would collide on the (null, null) index key.
+courseSchema.index(
+  { institutionId: 1, code: 1 },
+  { unique: true, partialFilterExpression: { code: { $type: 'string' } } },
+);
 courseSchema.index({ ownerId: 1 });
 courseSchema.index({ 'staff.userId': 1 });
 
