@@ -1,7 +1,7 @@
 /**
  * Embedding provider factory (Strategy pattern). The rest of the codebase
  * only depends on the interface: { name, model, dimensions, embed(texts) }.
- * Select the implementation with EMBEDDING_PROVIDER (stub | voyage).
+ * Select the implementation with EMBEDDING_PROVIDER (stub | voyage | gemini).
  */
 
 import { AiProviderError } from '../../shared/errors/index.js';
@@ -9,6 +9,7 @@ import { config } from '../../config/index.js';
 import { logger } from '../../config/logger.js';
 import { createStubEmbeddingProvider } from './stub-embedding.provider.js';
 import { createVoyageEmbeddingProvider } from './voyage-embedding.provider.js';
+import { createGeminiEmbeddingProvider } from './gemini-embedding.provider.js';
 
 function createLocalStub({ dimensions }) {
   // The stub records its own model name so stored chunks are never
@@ -23,6 +24,25 @@ export function createEmbeddingProvider(overrides = {}) {
 
   if (provider === 'stub') {
     return createLocalStub({ dimensions });
+  }
+  if (provider === 'gemini') {
+    const apiKey = overrides.apiKey ?? config.ai.geminiApiKey;
+    if (!apiKey) {
+      if (config.isProduction) {
+        throw new AiProviderError(
+          'Embedding provider is not configured: set GEMINI_API_KEY or switch EMBEDDING_PROVIDER=stub',
+        );
+      }
+      logger.warn(
+        'EMBEDDING_PROVIDER=gemini but GEMINI_API_KEY is empty; using deterministic stub embeddings. Set GEMINI_API_KEY or EMBEDDING_PROVIDER=stub to silence this warning.',
+      );
+      return createLocalStub({ dimensions });
+    }
+    return createGeminiEmbeddingProvider({
+      apiKey,
+      model: overrides.model ?? config.ai.geminiEmbedModel,
+      dimensions,
+    });
   }
   if (provider === 'voyage') {
     const apiKey = overrides.apiKey ?? config.ai.embeddingApiKey;

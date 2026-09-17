@@ -11,6 +11,7 @@ import { config } from '../../config/index.js';
 import { logger } from '../../config/logger.js';
 import { createStubLlmProvider } from './stub-llm.provider.js';
 import { createAnthropicLlmProvider } from './anthropic-llm.provider.js';
+import { createGroqLlmProvider } from './groq-llm.provider.js';
 
 function createLocalStub() {
   // The stub records its own model name so evaluations stay auditable.
@@ -22,6 +23,29 @@ export function createLlmProvider(overrides = {}) {
 
   if (provider === 'stub') {
     return createLocalStub();
+  }
+  if (provider === 'groq') {
+    const groqApiKey = overrides.apiKey ?? config.ai.groqApiKey;
+    const openrouterApiKey = overrides.openrouterApiKey ?? config.ai.openrouterApiKey;
+    if (!groqApiKey && !openrouterApiKey) {
+      if (config.isProduction) {
+        throw new AiProviderError(
+          'LLM provider is not configured: set GROQ_API_KEY (or OPENROUTER_API_KEY) or switch LLM_PROVIDER=stub',
+        );
+      }
+      logger.warn(
+        'LLM_PROVIDER=groq but GROQ_API_KEY and OPENROUTER_API_KEY are empty; using the deterministic stub LLM. Set a key or LLM_PROVIDER=stub to silence this warning.',
+      );
+      return createLocalStub();
+    }
+    return createGroqLlmProvider({
+      groqApiKey,
+      groqModel: config.ai.groqModel,
+      maxTokens: config.ai.groqMaxTokens,
+      openrouterApiKey,
+      openrouterModel: config.ai.openrouterModel,
+      openrouterBaseUrl: config.ai.openrouterBaseUrl,
+    });
   }
   if (provider === 'anthropic') {
     const apiKey = overrides.apiKey ?? config.ai.anthropicApiKey;
