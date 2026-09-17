@@ -111,7 +111,42 @@ export function createSubmissionsService({
       canSubmit,
       submission: submission ? toPublicSubmission(submission) : null,
       resubmissionRequest,
+      workingAnswers: await buildWorkingAnswers(submission),
     };
+  }
+
+  function toWorkingAnswer(answer) {
+    return {
+      questionId: answer.questionId.toString(),
+      answerText: answer.answerText ?? null,
+      selectedOptionIds: answer.selectedOptionIds ?? null,
+      imageUrl: answer.imageUrl ?? null,
+      savedAt: answer.savedAt ?? null,
+    };
+  }
+
+  async function buildWorkingAnswers(submission) {
+    if (!submission || !EDITABLE_SUBMISSION_STATUSES.includes(submission.status)) {
+      return null;
+    }
+    const attempt = await submissionAttemptRepository.findLatest(submission._id);
+    const current = attempt ? await submissionAnswerRepository.listByAttempt(attempt._id) : [];
+    const working = current.map(toWorkingAnswer);
+    if (submission.status !== SUBMISSION_STATUS.RESUBMISSION_REQUESTED) {
+      return working;
+    }
+    const covered = new Set(working.map((answer) => answer.questionId));
+    const request = await buildResubmissionRequest(submission);
+    const prefilled = request.prefilledAnswers
+      .filter((answer) => !covered.has(answer.questionId))
+      .map((answer) => ({
+        questionId: answer.questionId,
+        answerText: answer.answerText,
+        selectedOptionIds: answer.selectedOptionIds,
+        imageUrl: answer.imageUrl,
+        savedAt: null,
+      }));
+    return [...working, ...prefilled];
   }
 
   async function buildResubmissionRequest(submission) {
