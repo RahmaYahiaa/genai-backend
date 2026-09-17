@@ -20,6 +20,7 @@ import {
   createQuestionSchema,
   updateQuestionSchema,
   gradeVisibilitySchema,
+  feedbackVisibilitySchema,
   listAssignmentsQuerySchema,
 } from './assignments.schema.js';
 
@@ -48,6 +49,7 @@ export const assignmentsRouter = createAssignmentsRouter({
     createQuestion: validateSchemas({ body: createQuestionSchema }),
     updateQuestion: validateSchemas({ body: updateQuestionSchema }),
     gradeVisibility: validateSchemas({ body: gradeVisibilitySchema }),
+    feedbackVisibility: validateSchemas({ body: feedbackVisibilitySchema }),
     listAssignmentsQuery: validateSchemas({ query: listAssignmentsQuerySchema }),
   },
 });

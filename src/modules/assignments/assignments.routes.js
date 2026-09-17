@@ -61,5 +61,12 @@ export function createAssignmentsRouter({ controller, middlewares, validators })
     controller.setGradeVisibility,
   );
 
+  router.patch(
+    '/assignments/:assignmentId/feedback-visibility',
+    validators.assignmentIdParam,
+    validators.feedbackVisibility,
+    controller.setFeedbackVisibility,
+  );
+
   return router;
 }

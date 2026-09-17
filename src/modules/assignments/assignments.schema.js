@@ -111,6 +111,10 @@ const gradeVisibilitySchema = z.object({
   showGradeToStudent: z.boolean(),
 });
 
+const feedbackVisibilitySchema = z.object({
+  showFeedbackToStudent: z.boolean(),
+});
+
 const listAssignmentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -126,5 +130,6 @@ export {
   createQuestionSchema,
   updateQuestionSchema,
   gradeVisibilitySchema,
+  feedbackVisibilitySchema,
   listAssignmentsQuerySchema,
 };

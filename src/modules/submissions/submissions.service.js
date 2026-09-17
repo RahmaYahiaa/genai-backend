@@ -153,12 +153,13 @@ export function createSubmissionsService({
       return { available: false, reason: 'GRADES_HIDDEN' };
     }
     const grades = await finalGradeRepository.listBySubmission(submission._id);
+    const feedbackOn = Boolean(assignment.showFeedbackToStudent);
     return {
       available: true,
       result: {
         submissionId: submission._id.toString(),
         finalScoreTotal: submission.finalScoreTotal ?? null,
-        finalFeedback: submission.finalFeedback ?? null,
+        finalFeedback: feedbackOn ? (submission.finalFeedback ?? null) : null,
         finalDecision: submission.finalDecision ?? null,
         decidedAt: submission.updatedAt,
         answers: grades
@@ -166,7 +167,7 @@ export function createSubmissionsService({
           .map((grade) => ({
             questionId: grade.questionId ? grade.questionId.toString() : null,
             finalScore: grade.finalScore,
-            finalFeedback: grade.finalFeedback ?? null,
+            finalFeedback: feedbackOn ? (grade.finalFeedback ?? null) : null,
           })),
       },
     };

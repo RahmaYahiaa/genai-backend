@@ -22,6 +22,7 @@ const assignmentSchema = new mongoose.Schema(
       index: true,
     },
     showGradeToStudent: { type: Boolean, default: true },
+    showFeedbackToStudent: { type: Boolean, default: false },
   },
   { timestamps: true, versionKey: false },
 );
@@ -38,6 +39,7 @@ export function toPublicAssignment(assignment) {
     title: assignment.title,
     status: assignment.status,
     showGradeToStudent: assignment.showGradeToStudent,
+    showFeedbackToStudent: Boolean(assignment.showFeedbackToStudent),
     createdAt: assignment.createdAt,
     updatedAt: assignment.updatedAt,
   };

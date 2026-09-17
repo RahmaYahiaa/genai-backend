@@ -112,6 +112,15 @@ export function createAssignmentsController({ assignmentsService, submissionsSer
     sendSuccess(res, { data: assignment });
   });
 
+  const setFeedbackVisibility = asyncHandler(async (req, res) => {
+    const assignment = await assignmentsService.setFeedbackVisibility(
+      req.user,
+      req.validated.params.assignmentId,
+      req.validated.body,
+    );
+    sendSuccess(res, { data: assignment });
+  });
+
   return {
     createAssignment,
     updateAssignment,
@@ -124,5 +133,6 @@ export function createAssignmentsController({ assignmentsService, submissionsSer
     close,
     reopen,
     setGradeVisibility,
+    setFeedbackVisibility,
   };
 }

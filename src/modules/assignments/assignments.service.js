@@ -278,6 +278,21 @@ export function createAssignmentsService({
     return toPublicAssignment(updated);
   }
 
+  async function setFeedbackVisibility(user, assignmentId, payload) {
+    const { assignment } = await getAuthorizedAssignment(user, assignmentId);
+    const updated = await assignmentRepository.updateById(assignment._id, {
+      showFeedbackToStudent: payload.showFeedbackToStudent,
+    });
+    await auditService.record({
+      courseId: assignment.courseId,
+      assignmentId: assignment._id,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.TOGGLE_FEEDBACK_VISIBILITY,
+      metadata: { from: Boolean(assignment.showFeedbackToStudent), to: payload.showFeedbackToStudent },
+    });
+    return toPublicAssignment(updated);
+  }
+
   return {
     createAssignment,
     updateAssignment,
@@ -290,5 +305,6 @@ export function createAssignmentsService({
     closeAssignment: (user, assignmentId) => transition(user, assignmentId, ASSIGNMENT_STATUS.CLOSED),
     reopenAssignment: (user, assignmentId) => transition(user, assignmentId, ASSIGNMENT_STATUS.OPEN),
     setGradeVisibility,
+    setFeedbackVisibility,
   };
 }
