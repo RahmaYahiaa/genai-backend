@@ -246,7 +246,7 @@ export const AI_CORRECTNESS = {
   INCORRECT: 'INCORRECT',
 };
 
-export const GRADING_PROMPT_VERSION = 'grading-v1';
+export const GRADING_PROMPT_VERSION = 'grading-v2-calibrated';
 
 export const FINAL_GRADE_DECISIONS = {
   APPROVED: 'APPROVED',

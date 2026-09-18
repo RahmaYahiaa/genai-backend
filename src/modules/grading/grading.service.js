@@ -1,4 +1,9 @@
-import { GRADING_PROMPT_VERSION, SUBMISSION_STATUS, AI_CONFIDENCE } from '../../config/constants.js';
+import {
+  GRADING_PROMPT_VERSION,
+  SUBMISSION_STATUS,
+  AI_CONFIDENCE,
+  ASSIGNMENT_QUESTION_TYPES,
+} from '../../config/constants.js';
 import { NotFoundError } from '../../shared/errors/index.js';
 import { llmGradingOutputSchema } from './grading.schema.js';
 import { toPublicAiEvaluation } from './ai-evaluation.model.js';
@@ -17,13 +22,31 @@ function buildSources(question, contexts) {
   };
 }
 
+const OBJECTIVE_TYPES = [
+  ASSIGNMENT_QUESTION_TYPES.MULTIPLE_CHOICE,
+  ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT,
+  ASSIGNMENT_QUESTION_TYPES.TRUE_FALSE,
+];
+
+const normalizeOption = (value) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+function insufficientFeedback(reason) {
+  if (reason === 'NO_SOURCE_AVAILABLE') {
+    return (
+      'Grading was deferred to mandatory manual review: no trusted source (model answer, rubric, or course material) was available to evaluate this answer.'
+    );
+  }
+  return (
+    'AI grading could not complete for this answer (the provider was unavailable or returned an invalid output). The submission stays queued for manual review and no score was assigned.'
+  );
+}
+
 function insufficientEvaluation(sources, reason) {
   return {
     score: null,
     correctness: null,
     confidence: AI_CONFIDENCE.INSUFFICIENT_EVIDENCE,
-    feedbackText:
-      'Grading was deferred to mandatory manual review: no trusted source (model answer, rubric, or course material) was available to evaluate this answer.',
+    feedbackText: insufficientFeedback(reason),
     misconceptions: [],
     rubricBreakdown: null,
     sourcesUsed: { ...sources, reason },
@@ -56,11 +79,65 @@ export function createGradingService({
   }
 
   const GRADING_SYSTEM_PROMPT =
-    'You are an academic grading assistant. Grade the student answer against the provided ' +
-    'model answer, rubric and trusted course excerpts only. Respond with JSON only using this shape: ' +
+    'You are an academic grading assistant. The model answer and the rubric are the authoritative ' +
+    'grading key; retrieved course excerpts are only supplementary context. Grading rules: ' +
+    '(1) If the student answer is semantically equivalent to the model answer, or covers every rubric ' +
+    'point, award the full maxScore with correctness CORRECT - never deduct for wording, order or style. ' +
+    '(2) Deduct only for rubric points that are missing or factually wrong, proportionally to their ' +
+    'weight, and list each point in rubricBreakdown. ' +
+    '(3) The score measures answer quality only. Confidence measures your certainty about the ' +
+    'evaluation and must never reduce or inflate the score. ' +
+    '(4) Judge only what the question asks. ' +
+    '(5) Confidence calibration: HIGH when the answer unambiguously matches or contradicts the ' +
+    'grading key; MEDIUM when the answer is partially clear or mixes correct and wrong points; ' +
+    'LOW when the answer is ambiguous or hard to map to the rubric. Confidence never changes the score. ' +
+    'Respond with JSON only using this shape: ' +
     '{"score": number between 0 and maxScore, "correctness": "CORRECT"|"PARTIAL"|"INCORRECT", ' +
     '"confidence": "HIGH"|"MEDIUM"|"LOW", "feedbackText": string, ' +
     '"misconceptions": [{"code": string, "description": string}], "rubricBreakdown": object or null}.';
+
+  function objectiveEvaluation(question, selectedOptionIds, answerText) {
+    const options = question.options ?? [];
+    const correct = new Set(question.correctOptionIds ?? []);
+    let selected = new Set(selectedOptionIds ?? []);
+    if (selected.size === 0 && answerText) {
+      selected = new Set(
+        options
+          .filter((option) => normalizeOption(option.text) === normalizeOption(answerText))
+          .map((option) => option.id),
+      );
+    }
+    if (correct.size === 0) return null;
+    const wrongPicks = [...selected].filter((id) => !correct.has(id)).length;
+    const hits = [...selected].filter((id) => correct.has(id)).length;
+    const isMulti = question.type === ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT;
+    const gained = isMulti
+      ? Math.max(0, Math.min(correct.size, hits - wrongPicks))
+      : hits === correct.size && wrongPicks === 0
+        ? correct.size
+        : 0;
+    const score = Math.round((question.maxScore * gained) / correct.size * 100) / 100;
+    const correctness =
+      gained === correct.size && wrongPicks === 0
+        ? 'CORRECT'
+        : gained > 0
+          ? 'PARTIAL'
+          : 'INCORRECT';
+    return {
+      score,
+      correctness,
+      confidence: AI_CONFIDENCE.HIGH,
+      feedbackText:
+        correctness === 'CORRECT'
+          ? 'Objective question matched the answer key exactly - full score awarded deterministically.'
+          : `Objective question graded against the answer key: ${gained} of ${correct.size} correct selection(s).`,
+      misconceptions: [],
+      rubricBreakdown: null,
+      sourcesUsed: { question: true, deterministic: true, model_answer: Boolean(question.modelAnswer), rubric: Boolean(question.rubricText), retrievedChunks: 0, chunkIds: [] },
+      modelVersion: 'rules-v1-objective',
+      promptVersion: GRADING_PROMPT_VERSION,
+    };
+  }
 
   async function runModel({ question, contexts, answerText, topicTitle }) {
     const payload = {
@@ -96,7 +173,11 @@ export function createGradingService({
     throw lastError ?? new Error('grading model output failed twice');
   }
 
-  async function gradeAnswerCore({ courseId, topicTitle, question, answerText }) {
+  async function gradeAnswerCore({ courseId, topicTitle, question, answerText, selectedOptionIds = null }) {
+    if (OBJECTIVE_TYPES.includes(question.type)) {
+      const deterministic = objectiveEvaluation(question, selectedOptionIds, answerText);
+      if (deterministic) return deterministic;
+    }
     const { sources, contexts } = await collectSources(courseId, question);
     if (!sources.model_answer && !sources.rubric && contexts.length === 0) {
       return insufficientEvaluation(sources, 'NO_SOURCE_AVAILABLE');
@@ -155,6 +236,7 @@ export function createGradingService({
       topicTitle,
       question,
       answerText: payload.trialAnswer,
+      selectedOptionIds: payload.selectedOptionIds ?? null,
     });
     return toPublicShape(evaluation);
   }
@@ -189,6 +271,7 @@ export function createGradingService({
           topicTitle,
           question,
           answerText: answer.answerText ?? '',
+          selectedOptionIds: answer.selectedOptionIds ?? null,
         });
       } catch {
         evaluation = insufficientEvaluation(

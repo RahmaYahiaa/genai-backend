@@ -32,7 +32,7 @@ function extractJson(text) {
 export function createAnthropicLlmProvider({ apiKey, model, maxTokens }) {
   if (!apiKey) {
     throw new AiProviderError(
-      'LLM provider is not configured: set ANTHROPIC_API_KEY or switch LLM_PROVIDER=stub',
+      'LLM provider is not configured: set ANTHROPIC_API_KEY in your .env',
     );
   }
 

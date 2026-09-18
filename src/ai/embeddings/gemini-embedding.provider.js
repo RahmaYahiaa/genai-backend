@@ -3,10 +3,17 @@ import { AiProviderError } from '../../shared/errors/index.js';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const MAX_TEXT_CHARS = 8000;
 
+const SUPPORTED_DIMENSIONS = [768, 1536, 3072];
+
 export function createGeminiEmbeddingProvider({ apiKey, model, dimensions }) {
   if (!apiKey) {
     throw new AiProviderError(
-      'Embedding provider is not configured: set GEMINI_API_KEY or switch EMBEDDING_PROVIDER=stub',
+      'Embedding provider is not configured: set GEMINI_API_KEY in your .env',
+    );
+  }
+  if (!SUPPORTED_DIMENSIONS.includes(dimensions)) {
+    throw new AiProviderError(
+      `Gemini embeddings support dimensions 768, 1536 or 3072 - got ${dimensions}. Set EMBEDDING_DIMENSIONS=768 in your .env`,
     );
   }
 

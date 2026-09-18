@@ -50,7 +50,7 @@ export function createGroqLlmProvider({
 }) {
   if (!groqApiKey && !openrouterApiKey) {
     throw new AiProviderError(
-      'LLM provider is not configured: set GROQ_API_KEY (or OPENROUTER_API_KEY) or switch LLM_PROVIDER=stub',
+      'LLM provider is not configured: set GROQ_API_KEY (or OPENROUTER_API_KEY) in your .env',
     );
   }
 

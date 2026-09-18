@@ -8,35 +8,19 @@
 
 import { AiProviderError } from '../../shared/errors/index.js';
 import { config } from '../../config/index.js';
-import { logger } from '../../config/logger.js';
-import { createStubLlmProvider } from './stub-llm.provider.js';
 import { createAnthropicLlmProvider } from './anthropic-llm.provider.js';
 import { createGroqLlmProvider } from './groq-llm.provider.js';
-
-function createLocalStub() {
-  // The stub records its own model name so evaluations stay auditable.
-  return createStubLlmProvider({ modelName: 'stub-rules-v1' });
-}
 
 export function createLlmProvider(overrides = {}) {
   const provider = overrides.provider ?? config.ai.llmProvider;
 
-  if (provider === 'stub') {
-    return createLocalStub();
-  }
   if (provider === 'groq') {
     const groqApiKey = overrides.apiKey ?? config.ai.groqApiKey;
     const openrouterApiKey = overrides.openrouterApiKey ?? config.ai.openrouterApiKey;
     if (!groqApiKey && !openrouterApiKey) {
-      if (config.isProduction) {
-        throw new AiProviderError(
-          'LLM provider is not configured: set GROQ_API_KEY (or OPENROUTER_API_KEY) or switch LLM_PROVIDER=stub',
-        );
-      }
-      logger.warn(
-        'LLM_PROVIDER=groq but GROQ_API_KEY and OPENROUTER_API_KEY are empty; using the deterministic stub LLM. Set a key or LLM_PROVIDER=stub to silence this warning.',
+      throw new AiProviderError(
+        'LLM provider is not configured: set GROQ_API_KEY (or OPENROUTER_API_KEY) in your .env',
       );
-      return createLocalStub();
     }
     return createGroqLlmProvider({
       groqApiKey,
@@ -50,16 +34,9 @@ export function createLlmProvider(overrides = {}) {
   if (provider === 'anthropic') {
     const apiKey = overrides.apiKey ?? config.ai.anthropicApiKey;
     if (!apiKey) {
-      if (config.isProduction) {
-        // Production misconfiguration must fail fast at boot.
-        throw new AiProviderError(
-          'LLM provider is not configured: set ANTHROPIC_API_KEY or switch LLM_PROVIDER=stub',
-        );
-      }
-      logger.warn(
-        'LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is empty; using the deterministic stub LLM. Set ANTHROPIC_API_KEY or LLM_PROVIDER=stub to silence this warning.',
+      throw new AiProviderError(
+        'LLM provider is not configured: set ANTHROPIC_API_KEY in your .env',
       );
-      return createLocalStub();
     }
     return createAnthropicLlmProvider({
       apiKey,
