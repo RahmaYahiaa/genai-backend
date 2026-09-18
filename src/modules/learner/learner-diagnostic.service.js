@@ -323,9 +323,19 @@ export function createLearnerDiagnosticService({
     return evidenceRows.map(toPublicEvidence);
   }
 
+  async function listDiagnostics(user, courseId) {
+    const course = await coursesService.ensureStudentCourseAccess(user, courseId);
+    const assessments = await diagnosticRepository.listByStudentCourse(
+      user.id,
+      courseDocumentId(course),
+    );
+    return assessments.map(toPublicDiagnostic);
+  }
+
   return {
     getOrCreateLearnerProfile,
     startDiagnostic,
+    listDiagnostics,
     getDiagnostic,
     submitAnswer,
     listAssessmentEvidence,

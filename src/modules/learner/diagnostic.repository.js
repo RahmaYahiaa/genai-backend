@@ -8,6 +8,10 @@ export async function findById(assessmentId) {
   return DiagnosticAssessment.findById(assessmentId).lean();
 }
 
+export async function listByStudentCourse(studentId, courseId) {
+  return DiagnosticAssessment.find({ studentId, courseId }).sort({ createdAt: -1 }).lean();
+}
+
 export async function pushAnswer(assessmentId, answer) {
   return DiagnosticAssessment.findByIdAndUpdate(
     assessmentId,

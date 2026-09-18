@@ -24,41 +24,63 @@ const INSTITUTION_NAME = 'Menoufia University';
 const EMAIL_DOMAIN = 'menoufia.edu.eg';
 
 const SET_THEORY_MATERIAL =
-  'محاضرة في نظرية المجموعات. المجموعة هي تجمع لكائنات مميزة بلا ترتيب محدد. ' +
-  'التقاطع بين المجموعتين A و B هو مجموعة العناصر المشتركة بينهما ويكتب A ∩ B. ' +
-  'الاتحاد هو مجموعة كل العناصر التي تنتمي إلى A أو B أو كليهما ويكتب A ∪ B. ' +
-  'قوانين دي مورجان تربط الاتحاد والتقاطع بالمتممة: متممة اتحاد مجموعتين تساوي تقاطع المتممات. ' +
-  'مثال محلول: إذا كانت A = {1,2,3} و B = {2,3,4} فإن A ∩ B = {2,3} و A ∪ B = {1,2,3,4}.';
+  'Lecture on set theory. A set is a collection of distinct objects with no ordering. ' +
+  'The intersection of two sets A and B is the set of elements common to both, written A ∩ B. ' +
+  'The union is the set of all elements that belong to A or B or both, written A ∪ B. ' +
+  "De Morgan's laws relate union and intersection through complementation: the complement of a union equals the intersection of the complements. " +
+  'Worked example: if A = {1,2,3} and B = {2,3,4} then A ∩ B = {2,3} and A ∪ B = {1,2,3,4}.';
 
 const GRAPH_THEORY_MATERIAL =
-  'محاضرة في نظرية المخططات. المخطط G = (V, E) يتكون من مجموعة رؤوس V ومجموعة حواف E. ' +
-  'المسار هو سلسلة من الحواف المتتالية بين رأسين، والدورة مسار مغلق يعود إلى نقطة البداية. ' +
-  'المخطط المتصل يوجد بين كل زوج من الرؤوس مسار على الأقل. الشجرة هي مخطط متصل بلا دورات وعدد حوافها n-1. ' +
-  'مثال محلول: نمثل شبكة نقل بالرؤوس والحواف ثم نتحقق من الاتصال بين كل المحطات باستخدام البحث بالعرض BFS.';
+  'Lecture on graph theory. A graph G = (V, E) consists of a vertex set V and an edge set E. ' +
+  'A path is a chain of consecutive edges between two vertices, and a cycle is a closed path that returns to its start. ' +
+  'A connected graph has at least one path between every pair of vertices. A tree is a connected graph with no cycles and exactly n-1 edges. ' +
+  'Worked example: model a transport network as vertices and edges, then verify connectivity between all stations using breadth-first search.';
 
 const COLORING_MATERIAL =
-  'محاضرة في تلوين المخططات. تلوين المخطط هو إسناد ألوان إلى الرؤوس بحيث لا يتشارك رأسان متجاوران في اللون نفسه. ' +
-  'العدد الكرومي χ(G) هو أقل عدد من الألوان يكفي لتلوين المخطط. ' +
-  'نظرية الأربعة ألوان تنص على أن كل مخطط مستوٍ قابل للتلوين بأربعة ألوان على الأكثر. ' +
-  'مثال محلول: نلون مخططًا مستويًا صغيرًا رأسًا رأس بالترتيب ثم نتحقق من صحة التلوين عند كل حافة.';
+  'Lecture on graph coloring. A coloring assigns colors to vertices so that no two adjacent vertices share the same color. ' +
+  'The chromatic number χ(G) is the smallest number of colors that suffices to color the graph. ' +
+  'The four color theorem states that every planar graph can be colored with at most four colors. ' +
+  'Worked example: color a small planar graph vertex by vertex, checking every edge after each assignment.';
+
+const SCHEDULING_MATERIAL =
+  'Lecture on CPU scheduling. The scheduler decides which ready process runs next on the CPU. ' +
+  'First-come first-served runs processes in arrival order, while shortest-job-first picks the process with the smallest next CPU burst. ' +
+  'Round robin gives every process a fixed time quantum and preempts it when the quantum expires. ' +
+  'Worked example: three processes with bursts 5, 2 and 1 under shortest-job-first finish in the order 1, 2, 5 giving an average waiting time of 3.';
+
+const DEADLOCKS_MATERIAL =
+  'Lecture on deadlocks. A deadlock is a set of processes each waiting for a resource held by another member of the set. ' +
+  'The four Coffman conditions are mutual exclusion, hold and wait, no preemption and circular wait. ' +
+  'The resource allocation graph detects cycles, and the banker algorithm avoids unsafe states before granting a request. ' +
+  'Worked example: two processes holding one printer and one scanner each while requesting the other device form a circular wait.';
 
 const PYTHON_BASICS_MATERIAL =
-  'ملزمة في أساسيات لغة بايثون. المتغير اسم يشير إلى قيمة محفوظة في الذاكرة ويتم إنشاؤه عند الإسناد مباشرة دون تحديد النوع. ' +
-  'القائمة List مجموعة مرتبة قابلة للتعديل تُكتب بأقواس مربعة مثل [1, 2, 3]، أما الصف Tuple فمرتب لكن غير قابل للتعديل ويُكتب بأقواس عادية مثل (1, 2, 3). ' +
-  'الدالة تُعرَّف بالكلمة المفتاحية def ويمكن أن تستقبل معاملات وترجع قيمة بـ return. ' +
-  'مثال محلول: دالة مجموع تأخذ قائمتين وترجع مجموع العناصر باستخدام حلقة for ودالة sum المدمجة.';
+  'Handout on Python basics. A variable is a name bound to a value created directly by assignment without declaring a type. ' +
+  'A list is an ordered mutable sequence written with square brackets such as [1, 2, 3], while a tuple is ordered but immutable and written with parentheses such as (1, 2, 3). ' +
+  'A function is defined with the def keyword and may accept parameters and return a value with return. ' +
+  'Worked example: a sum function that takes two lists and returns the sum of their elements using a for loop and the built-in sum function.';
 
 const GOOD_INTERSECTION_ANSWER =
-  'تقاطع المجموعتين A و B هو مجموعة كل العناصر المشتركة بينهما، ويُرمز له بـ A ∩ B. ' +
-  'مثال محلول: إذا كانت A = {1,2,3} و B = {2,3,4} فإن التقاطع A ∩ B = {2,3} ' +
-  'لأن العنصرين 2 و 3 فقط هما المشتركان بين المجموعتين كما في تعريف المحاضرة ومثالها.';
+  'The intersection of two sets A and B is the set of all elements common to both, denoted A ∩ B. ' +
+  'Worked example: if A = {1,2,3} and B = {2,3,4} then A ∩ B = {2,3} because only 2 and 3 belong to both sets, ' +
+  'exactly as defined in the lecture and its worked example.';
 
 const GOOD_UNION_ANSWER =
-  'الاتحاد يجمع كل عناصر المجموعتين معًا بينما التقاطع يقتصر على العناصر المشتركة بينهما فقط.';
+  'The union collects all elements of both sets together, while the intersection keeps only the elements common to both.';
 
 const PROOF_ANSWER =
-  'وفقًا لنظرية الأربعة ألوان كل مخطط مستوٍ قابل للتلوين بأربعة ألوان؛ نلوّن الرؤوس واحدًا تلو الآخر ' +
-  'ونختار لونًا مختلفًا عن ألوان جيرانه حتى تُحقق كل حافة الشرط.';
+  'By the four color theorem every planar graph is colorable with at most four colors; we color the vertices one by one, ' +
+  'choosing a color different from all already-colored neighbors until every edge is satisfied.';
+
+const WEAK_ANSWER = 'I do not know how to prove this.';
+
+const SCHEDULING_ANSWER =
+  'Round robin assigns a fixed time quantum to each ready process and preempts the running process when the quantum expires, ' +
+  'so short jobs do not wait behind long ones as they do under first-come first-served.';
+
+const DEADLOCK_ANSWER =
+  'A circular wait exists in the example because process P1 holds the printer and requests the scanner while process P2 holds the scanner and requests the printer, ' +
+  'closing a cycle in the resource allocation graph.';
 
 function log(message) {
   console.log(`[seed] ${message}`);
@@ -90,31 +112,7 @@ async function submitAnswer(student, assignmentId, questionId, answerText) {
   return submissionsService.submitAssignment(student, assignmentId);
 }
 
-const SEED_LLM_PACING_MS = 4000;
-const SEED_LLM_RETRY_DELAYS_MS = [45000, 45000];
 
-function isProviderRateLimitError(error) {
-  return /429|rate limit|All LLM providers failed/i.test(String(error?.message ?? error));
-}
-
-async function withLlmRetry(label, fn) {
-  for (let attempt = 0; attempt <= SEED_LLM_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      const result = await fn();
-      await new Promise((resolve) => setTimeout(resolve, SEED_LLM_PACING_MS));
-      return result;
-    } catch (error) {
-      if (attempt === SEED_LLM_RETRY_DELAYS_MS.length || !isProviderRateLimitError(error)) {
-        throw error;
-      }
-      const waitSeconds = SEED_LLM_RETRY_DELAYS_MS[attempt] / 1000;
-      console.log(
-        `\n[seed] ${label}: provider rate limit hit - waiting ${waitSeconds}s then retrying (attempt ${attempt + 2})...`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, SEED_LLM_RETRY_DELAYS_MS[attempt]));
-    }
-  }
-}
 
 async function main() {
   const reset = process.argv.includes('--reset');
@@ -135,35 +133,35 @@ async function main() {
   log(`institution: ${INSTITUTION_NAME} (@${EMAIL_DOMAIN})`);
   const admin = await registerUser({
     email: ADMIN_EMAIL,
-    firstName: 'منى',
-    lastName: 'عبد الرحمن',
+    firstName: 'Mona',
+    lastName: 'Abdelrahman',
     role: ROLES.INSTITUTION_ADMIN,
     institutionName: INSTITUTION_NAME,
     emailDomains: [EMAIL_DOMAIN],
     allowSelfRegistration: true,
-    languagePreference: LANGUAGES.ARABIC,
+    languagePreference: LANGUAGES.ENGLISH,
   });
 
   const faculty = await academicStructureService.createUnit(admin, {
     type: 'faculty',
-    name: 'كلية الحاسبات والمعلومات',
+    name: 'Faculty of Computers and Information',
     code: 'FCI-MN',
   });
   const department = await academicStructureService.createUnit(admin, {
     type: 'department',
-    name: 'قسم علوم الحاسب',
+    name: 'Computer Science Department',
     code: 'CS-MN',
     parentId: faculty.id,
   });
   await academicStructureService.createUnit(admin, {
     type: 'program',
-    name: 'برنامج بكالوريوس علوم الحاسب',
+    name: 'BSc Computer Science Program',
     code: 'BSC-CS-MN',
     parentId: department.id,
   });
   await academicStructureService.createUnit(admin, {
     type: 'semester',
-    name: 'الفصل الدراسي الأول 2026/2027',
+    name: 'Fall 2026 Semester',
     code: 'FALL-2026',
     parentId: department.id,
   });
@@ -171,20 +169,20 @@ async function main() {
 
   const instructor = await registerUser({
     email: 'hassan.farid@menoufia.edu.eg',
-    firstName: 'حسن',
-    lastName: 'فريد',
+    firstName: 'Hassan',
+    lastName: 'Farid',
     role: ROLES.INSTRUCTOR,
     institutionId: admin.institutionId,
-    languagePreference: LANGUAGES.ARABIC,
+    languagePreference: LANGUAGES.ENGLISH,
   });
 
   const studentSeed = [
-    ['sara@menoufia.edu.eg', 'سارة', 'علي'],
-    ['mona@menoufia.edu.eg', 'منى', 'سعيد'],
-    ['nadia@menoufia.edu.eg', 'نادية', 'سمير'],
-    ['yara@menoufia.edu.eg', 'يارا', 'هاني'],
-    ['omar@menoufia.edu.eg', 'عمر', 'كمال'],
-    ['mariam@menoufia.edu.eg', 'مريم', 'حسن'],
+    ['sara.mitchell@gmail.com', 'Sara', 'Mitchell'],
+    ['mona.reyes@gmail.com', 'Mona', 'Reyes'],
+    ['nadia.khalil@gmail.com', 'Nadia', 'Khalil'],
+    ['yara.hansen@gmail.com', 'Yara', 'Hansen'],
+    ['omar.diaz@gmail.com', 'Omar', 'Diaz'],
+    ['mariam.taleb@gmail.com', 'Mariam', 'Taleb'],
   ];
   const students = [];
   for (const [email, firstName, lastName] of studentSeed) {
@@ -194,15 +192,15 @@ async function main() {
         firstName,
         lastName,
         role: ROLES.STUDENT,
-        institutionId: admin.institutionId,
-        languagePreference: LANGUAGES.ARABIC,
+        languagePreference: LANGUAGES.ENGLISH,
       }),
     );
   }
-  const [sara, mona, nadia, yara, omar] = students;
+  const [sara, mona, nadia, yara, omar, mariam] = students;
+  log('students registered as personal-track learners (no university affiliation)');
 
   const course = await coursesService.createCourse(admin, {
-    title: 'الرياضيات المتقطعة',
+    title: 'Discrete Mathematics',
     code: 'CS201',
   });
   await coursesService.addStaff(admin, course.id, {
@@ -212,81 +210,120 @@ async function main() {
   for (const student of students) {
     await coursesService.enroll(admin, course.id, student.id);
   }
-  log(`course ready: CS201 - الرياضيات المتقطعة (1 instructor, ${students.length} students)`);
+  log(`course ready: CS201 - Discrete Mathematics (1 instructor, ${students.length} students)`);
+
+  const osCourse = await coursesService.createCourse(admin, {
+    title: 'Operating Systems',
+    code: 'CS301',
+  });
+  await coursesService.addStaff(admin, osCourse.id, {
+    userId: instructor.id,
+    role: COURSE_STAFF_ROLES.INSTRUCTOR,
+  });
+  for (const student of [sara, mona, nadia, omar]) {
+    await coursesService.enroll(admin, osCourse.id, student.id);
+  }
+  log('course ready: CS301 - Operating Systems (1 instructor, 4 students)');
 
   const requester = await registerUser({
     email: 'farida@menoufia.edu.eg',
-    firstName: 'فريدة',
-    lastName: 'محمد',
+    firstName: 'Farida',
+    lastName: 'Mohamed',
     role: ROLES.STUDENT,
     institutionId: admin.institutionId,
-    languagePreference: LANGUAGES.ARABIC,
+    languagePreference: LANGUAGES.ENGLISH,
   });
   await coursesService.requestEnrollment(requester, course.id, {
-    note: 'حابة أبدأ في المقرر ده كمقرر اختياري.',
+    note: 'I would like to join this course as an elective.',
   });
   log('enrollment request: farida -> CS201 (pending admin approval)');
 
   const topicSets = await coursesService.addTopic(instructor, course.id, {
-    title: 'نظرية المجموعات',
+    title: 'Set Theory',
     order: 1,
   });
   const topicGraphs = await coursesService.addTopic(instructor, course.id, {
-    title: 'نظرية المخططات',
+    title: 'Graph Theory',
     order: 2,
   });
   const topicColoring = await coursesService.addTopic(instructor, course.id, {
-    title: 'تلوين المخططات',
+    title: 'Graph Coloring',
+    order: 3,
+  });
+  const topicScheduling = await coursesService.addTopic(instructor, osCourse.id, {
+    title: 'CPU Scheduling',
+    order: 1,
+  });
+  const topicDeadlocks = await coursesService.addTopic(instructor, osCourse.id, {
+    title: 'Deadlocks',
+    order: 2,
+  });
+  await coursesService.addTopic(instructor, osCourse.id, {
+    title: 'Memory Management',
     order: 3,
   });
 
   await knowledgeIngestionService.uploadMaterial(instructor, course.id, {
-    title: 'محاضرة 1: نظرية المجموعات',
+    title: 'Lecture 1: Set Theory',
     sourceType: 'lecture_notes',
     mimeType: 'text/plain',
     fileName: 'lecture-01-sets.txt',
     content: SET_THEORY_MATERIAL,
   });
   await knowledgeIngestionService.uploadMaterial(instructor, course.id, {
-    title: 'محاضرة 2: نظرية المخططات',
+    title: 'Lecture 2: Graph Theory',
     sourceType: 'lecture_notes',
     mimeType: 'text/plain',
     fileName: 'lecture-02-graphs.txt',
     content: GRAPH_THEORY_MATERIAL,
   });
   await knowledgeIngestionService.uploadMaterial(instructor, course.id, {
-    title: 'محاضرة 3: تلوين المخططات',
+    title: 'Lecture 3: Graph Coloring',
     sourceType: 'lecture_notes',
     mimeType: 'text/plain',
     fileName: 'lecture-03-coloring.txt',
     content: COLORING_MATERIAL,
   });
-  log('materials uploaded and READY: 3 Arabic lectures chunked + embedded');
+  await knowledgeIngestionService.uploadMaterial(instructor, osCourse.id, {
+    title: 'Lecture 1: CPU Scheduling',
+    sourceType: 'lecture_notes',
+    mimeType: 'text/plain',
+    fileName: 'os-lecture-01-scheduling.txt',
+    content: SCHEDULING_MATERIAL,
+  });
+  await knowledgeIngestionService.uploadMaterial(instructor, osCourse.id, {
+    title: 'Lecture 2: Deadlocks',
+    sourceType: 'lecture_notes',
+    mimeType: 'text/plain',
+    fileName: 'os-lecture-02-deadlocks.txt',
+    content: DEADLOCKS_MATERIAL,
+  });
+  log('materials uploaded and READY: 3 CS201 lectures + 2 CS301 lectures chunked + embedded');
 
   const hw1 = await assignmentsService.createAssignment(instructor, course.id, {
-    title: 'واجب 1: نظرية المجموعات',
+    title: 'Assignment 1: Set Theory',
   });
   const q1 = await assignmentsService.addQuestion(instructor, hw1.id, {
-    questionText: 'عرّف تقاطع المجموعتين وقدّم مثالًا محلولًا.',
+    questionText: 'Define the intersection of two sets and give a worked example.',
     topicId: topicSets.id,
     maxScore: 10,
-    modelAnswer: 'تقاطع A و B هو مجموعة العناصر المشتركة بينهما؛ مثال: {1,2} ∩ {2,3} = {2}.',
-    rubricText: '4 درجات للتعريف، 4 للمثال المحلول، درجتان للرموز الصحيحة.',
+    modelAnswer: 'The intersection of A and B is the set of elements common to both; example: {1,2} ∩ {2,3} = {2}.',
+    rubricText: '4 points for the definition, 4 for the worked example, 2 for correct notation.',
   });
   const q2 = await assignmentsService.addQuestion(instructor, hw1.id, {
-    questionText: 'اشرح الاتحاد بين مجموعتين وكيف يختلف عن التقاطع.',
+    questionText: 'Explain the union of two sets and how it differs from the intersection.',
     topicId: topicSets.id,
     maxScore: 10,
   });
   const q3 = await assignmentsService.addQuestion(instructor, hw1.id, {
-    questionText: 'ناقش نظرية الأربعة ألوان ودلالتها في تلوين المخططات المستوية.',
+    questionText: 'Discuss the four color theorem and its significance for planar graphs.',
     topicId: topicColoring.id,
     maxScore: 10,
-    modelAnswer: 'نظرية الأربعة ألوان: كل مخطط مستوٍ قابل للتلوين بأربعة ألوان على الأكثر.',
-    rubricText: '5 درجات لصياغة النظرية، 5 لمناقشة الدلالة.',
+    modelAnswer: 'Four color theorem: every planar graph is colorable with at most four colors.',
+    rubricText: '5 points for stating the theorem, 5 for discussing its significance.',
   });
   await assignmentsService.publishAssignment(instructor, hw1.id);
-  log(`assignment 1 published: واجب 1 (3 questions, total 30)`);
+  log('assignment 1 published: Assignment 1: Set Theory (3 essay questions, total 30)');
 
   await submissionsService.autosaveAnswer(sara, hw1.id, q1.id, { answerText: GOOD_INTERSECTION_ANSWER });
   await submissionsService.submitAssignment(sara, hw1.id);
@@ -294,40 +331,50 @@ async function main() {
   await submissionsService.autosaveAnswer(mona, hw1.id, q2.id, { answerText: GOOD_UNION_ANSWER });
   await submissionsService.submitAssignment(mona, hw1.id);
   await submissionsService.autosaveAnswer(nadia, hw1.id, q1.id, { answerText: GOOD_INTERSECTION_ANSWER });
-  await submissionsService.autosaveAnswer(nadia, hw1.id, q3.id, { answerText: 'لا أعرف الإثبات' });
+  await submissionsService.autosaveAnswer(nadia, hw1.id, q3.id, { answerText: WEAK_ANSWER });
   await submissionsService.submitAssignment(nadia, hw1.id);
   await submissionsService.autosaveAnswer(yara, hw1.id, q1.id, { answerText: GOOD_INTERSECTION_ANSWER });
   await submissionsService.submitAssignment(yara, hw1.id);
-  await submissionsService.autosaveAnswer(omar, hw1.id, q1.id, { answerText: 'مش عارف حاجة في الموضوع ده' });
+  await submissionsService.autosaveAnswer(omar, hw1.id, q1.id, { answerText: WEAK_ANSWER });
   await submissionsService.submitAssignment(omar, hw1.id);
-  log('5 submissions sent - waiting for the AI grading queue...');
+  await submissionsService.autosaveAnswer(mariam, hw1.id, q1.id, { answerText: GOOD_UNION_ANSWER });
+  log('5 submissions sent + mariam keeps a DRAFT - waiting for the AI grading queue...');
 
   const saraSubmission = await waitForGraded(sara, hw1.id);
   await waitForGraded(mona, hw1.id);
   const nadiaSubmission = await waitForGraded(nadia, hw1.id);
   const yaraSubmission = await waitForGraded(yara, hw1.id);
   const omarSubmission = await waitForGraded(omar, hw1.id);
-  log('all submissions GRADED');
+  log('all CS201 assignment 1 submissions GRADED');
 
-  const bulk = await reviewService.bulkApprove(instructor, hw1.id, {
-    submissionIds: [saraSubmission.id, yaraSubmission.id],
-  });
-  log(`bulk approved (fast track): ${bulk.approved.length} submissions`);
+  const hw1Review = await reviewService.getReview(instructor, hw1.id, { limit: 100 });
+  const wantedFast = new Set([saraSubmission.id, yaraSubmission.id]);
+  const fastIds = hw1Review.fastTrack
+    .map((row) => row.submission.id)
+    .filter((id) => wantedFast.has(id));
+  if (fastIds.length > 0) {
+    const bulk = await reviewService.bulkApprove(instructor, hw1.id, {
+      submissionIds: fastIds,
+    });
+    log(`bulk approved (fast track): ${bulk.approved.length} submissions`);
+  } else {
+    log('WARN no fast-track rows (LLM confidence below HIGH) - bulk approve skipped, those submissions stay pending');
+  }
 
   await reviewService.editSubmission(instructor, (await submissionsService.getStudentAssignmentView(mona, hw1.id)).submission.id, {
     score: 14,
-    feedback: 'التعريف ممتاز، لكن إجابة الاتحاد تحتاج تفصيلًا أكثر مع مثال.',
+    feedback: 'The definition is excellent, but the union answer needs more detail and a worked example.',
   });
   log('mona: edited final score 14/30');
 
   await reviewService.rejectSubmission(instructor, omarSubmission.id, {
     score: 2,
-    feedback: 'تقييم يدوي: الإجابة لا تتناول المطلوب، درجة مجهود فقط.',
+    feedback: 'Manual review: the answer does not address the question; effort points only.',
   });
   log('omar: rejected and graded manually 2/30');
 
   await reviewService.requestResubmission(instructor, nadiaSubmission.id, {
-    reason: 'أعيدي كتابة إجابة سؤال الألوان مع شرح خطوات الإثبات والرموز.',
+    reason: 'Please rewrite the coloring answer with the proof steps and the notation explained.',
   });
   log('nadia: resubmission requested (attempt 2 opened)');
 
@@ -337,80 +384,144 @@ async function main() {
   log('nadia: resubmitted, approved by AI grades');
 
   const hw2 = await assignmentsService.createAssignment(instructor, course.id, {
-    title: 'واجب 2: نظرية المخططات',
+    title: 'Assignment 2: Graph Theory',
   });
-  await assignmentsService.addQuestion(instructor, hw2.id, {
-    questionText: 'كل دورة في المخطط هي مسار، وعكس ذلك صحيح أيضًا.',
+  const tfQuestion = await assignmentsService.addQuestion(instructor, hw2.id, {
+    questionText: 'Every cycle in a graph is a path, and the converse also holds.',
     topicId: topicGraphs.id,
     maxScore: 5,
     questionType: 'true_false',
     correctAnswer: false,
   });
-  await assignmentsService.addQuestion(instructor, hw2.id, {
-    questionText: 'أي مما يلي يضمن أن المخطط ذا الرؤوس n متصل؟',
+  const mcqQuestion = await assignmentsService.addQuestion(instructor, hw2.id, {
+    questionText: 'Which of the following guarantees that a graph with n vertices is connected?',
     topicId: topicGraphs.id,
     maxScore: 5,
     questionType: 'multiple_choice',
     options: [
-      { text: 'عدد الحواف n-1 على الأقل مع اتصال كل زوج بالمسار' },
-      { text: 'وجود حلقة ذاتية على كل رأس' },
-      { text: 'أن تكون كل الرؤوس معزولة' },
-      { text: 'أن يكون عدد الحواف أقل من n-1' },
+      { text: 'At least n-1 edges with a path between every pair of vertices' },
+      { text: 'A self loop on every vertex' },
+      { text: 'All vertices isolated' },
+      { text: 'Fewer than n-1 edges' },
     ],
     correctOptionIndexes: [0],
   });
-  await assignmentsService.addQuestion(instructor, hw2.id, {
-    questionText: 'ميّز بين المسار والدورة في المخطط مع مثال لكل منهما.',
+  const hw2Essay = await assignmentsService.addQuestion(instructor, hw2.id, {
+    questionText: 'Distinguish between a path and a cycle in a graph with an example of each.',
     topicId: topicGraphs.id,
     maxScore: 10,
-    modelAnswer: 'المسار سلسلة حواف متتالية بين رأسين، والدورة مسار مغلق يعود إلى نقطة البداية.',
-    rubricText: '5 لكل تعريف مع المثال.',
+    modelAnswer: 'A path is a chain of consecutive edges between two vertices; a cycle is a closed path returning to its start.',
+    rubricText: '5 points per definition with its example.',
   });
   await assignmentsService.publishAssignment(instructor, hw2.id);
 
+  const tfFalseOption = tfQuestion.options.find((option) => /false/i.test(option.text)) ?? tfQuestion.options[1];
+  const tfTrueOption = tfQuestion.options.find((option) => /true/i.test(option.text)) ?? tfQuestion.options[0];
+  await submissionsService.autosaveAnswer(sara, hw2.id, tfQuestion.id, { selectedOptionIds: [tfFalseOption.id] });
+  await submissionsService.autosaveAnswer(sara, hw2.id, mcqQuestion.id, { selectedOptionIds: [mcqQuestion.options[0].id] });
+  await submissionsService.autosaveAnswer(sara, hw2.id, hw2Essay.id, { answerText: GOOD_UNION_ANSWER });
+  await submissionsService.submitAssignment(sara, hw2.id);
+  await waitForGraded(sara, hw2.id);
+  await submissionsService.autosaveAnswer(mona, hw2.id, tfQuestion.id, { selectedOptionIds: [tfTrueOption.id] });
+  await submissionsService.autosaveAnswer(mona, hw2.id, mcqQuestion.id, { selectedOptionIds: [mcqQuestion.options[2].id] });
+  await submissionsService.autosaveAnswer(mona, hw2.id, hw2Essay.id, { answerText: WEAK_ANSWER });
+  await submissionsService.submitAssignment(mona, hw2.id);
+  await waitForGraded(mona, hw2.id);
+  log('assignment 2 OPEN: true_false + multiple_choice (auto-graded) + essay (AI) - sara correct, mona wrong on both objective items');
+
   const hw3 = await assignmentsService.createAssignment(instructor, course.id, {
-    title: 'واجب 3: تلوين المخططات',
+    title: 'Assignment 3: Graph Coloring',
   });
   await assignmentsService.addQuestion(instructor, hw3.id, {
-    questionText: 'طبّق خوارزمية التلوين على مخطط مستوي صغير واثبت صحة الحل.',
+    questionText: 'Apply the coloring algorithm to a small planar graph and prove the result correct.',
     topicId: topicColoring.id,
     maxScore: 20,
   });
-  log('assignment 2 OPEN: true_false + multiple_choice (auto-graded) + essay (AI) - assignment 3 DRAFT');
+  log('assignment 3 stays DRAFT');
+
+  const os1 = await assignmentsService.createAssignment(instructor, osCourse.id, {
+    title: 'Assignment 1: CPU Scheduling and Deadlocks',
+  });
+  const osQ1 = await assignmentsService.addQuestion(instructor, os1.id, {
+    questionText: 'Compare round robin with first-come first-served scheduling and give a worked example.',
+    topicId: topicScheduling.id,
+    maxScore: 10,
+    modelAnswer: 'Round robin preempts after a fixed quantum; FCFS runs processes to completion in arrival order.',
+    rubricText: '5 points per comparison point with the worked example.',
+  });
+  const osQ2 = await assignmentsService.addQuestion(instructor, os1.id, {
+    questionText: 'Explain the circular wait condition with the printer and scanner example.',
+    topicId: topicDeadlocks.id,
+    maxScore: 10,
+  });
+  await assignmentsService.publishAssignment(instructor, os1.id);
+
+  await submissionsService.autosaveAnswer(sara, os1.id, osQ1.id, { answerText: SCHEDULING_ANSWER });
+  await submissionsService.autosaveAnswer(sara, os1.id, osQ2.id, { answerText: DEADLOCK_ANSWER });
+  await submissionsService.submitAssignment(sara, os1.id);
+  const saraOs = await waitForGraded(sara, os1.id);
+  await reviewService.approveSubmission(instructor, saraOs.id);
+  await submissionsService.autosaveAnswer(mona, os1.id, osQ1.id, { answerText: SCHEDULING_ANSWER });
+  await submissionsService.submitAssignment(mona, os1.id);
+  await waitForGraded(mona, os1.id);
+  await submissionsService.autosaveAnswer(omar, os1.id, osQ2.id, { answerText: WEAK_ANSWER });
+  await submissionsService.submitAssignment(omar, os1.id);
+  await waitForGraded(omar, os1.id);
+  log('CS301 assignment 1: sara FINALIZED, mona + omar pending review');
+
+  await assignmentsService.setGradeVisibility(instructor, hw1.id, { showGradeToStudent: true });
+  await assignmentsService.setGradeVisibility(instructor, os1.id, { showGradeToStudent: true });
+  await assignmentsService.setFeedbackVisibility(instructor, hw1.id, { showFeedbackToStudent: true });
+  log('visibility: grades ON for CS201 hw1 + CS301 os1, human feedback ON for hw1 only (feedback stays hidden by default elsewhere)');
 
   let remedialPublished = 0;
   try {
-    const offTopicRemedial = await remedialService.generateDraft(instructor, course.id, {
-      origin: 'FROM_MISCONCEPTION',
-      assignmentId: hw1.id,
-      misconceptionCode: 'OFF_TOPIC_RESPONSE',
-      contentType: 'FOCUSED_EXPLANATION_WITH_EXAMPLE',
-    });
-    await remedialService.publishRemedial(instructor, course.id, offTopicRemedial.id, {
-      audienceType: 'AFFECTED_STUDENTS',
-    });
-    remedialPublished += 1;
     const practiceRemedial = await remedialService.generateDraft(instructor, course.id, {
       origin: 'STANDALONE',
       topicId: topicGraphs.id,
       contentType: 'EXTRA_PRACTICE_QUESTIONS',
-      instructions: 'تركيز على الفرق بين المسار والدورة والأشجار',
+      instructions: 'Focus on the difference between paths, cycles and trees',
     });
     await remedialService.publishRemedial(instructor, course.id, practiceRemedial.id, {
       audienceType: 'ALL_STUDENTS',
     });
     remedialPublished += 1;
-    log('remedial published: AFFECTED_STUDENTS (OFF_TOPIC) + ALL_STUDENTS (graphs practice)');
+    log('remedial published: ALL_STUDENTS (graphs practice)');
   } catch (error) {
-    log(
-      `WARN remedial step skipped: ${error.message}` +
-        ' (check VECTOR_SEARCH_MODE / the Atlas index - retrieval returned no trusted chunks)',
-    );
+    log(`WARN standalone remedial skipped: ${error.message}`);
+  }
+  const reportedCodes = [
+    ...new Set(
+      [...hw1Review.fastTrack, ...hw1Review.needsReview]
+        .flatMap((row) => row.answers ?? [])
+        .flatMap((answer) => answer.misconceptions ?? [])
+        .map((misconception) => misconception?.code)
+        .filter(Boolean),
+    ),
+  ];
+  if (reportedCodes.length > 0) {
+    try {
+      const offTopicRemedial = await remedialService.generateDraft(instructor, course.id, {
+        origin: 'FROM_MISCONCEPTION',
+        assignmentId: hw1.id,
+        misconceptionCode: reportedCodes[0],
+        contentType: 'FOCUSED_EXPLANATION_WITH_EXAMPLE',
+      });
+      await remedialService.publishRemedial(instructor, course.id, offTopicRemedial.id, {
+        audienceType: 'AFFECTED_STUDENTS',
+      });
+      remedialPublished += 1;
+      log(`remedial published: AFFECTED_STUDENTS (${reportedCodes[0]})`);
+    } catch (error) {
+      log(`WARN misconception remedial skipped: ${error.message}`);
+    }
+  } else {
+    log('WARN no AI-reported misconception codes in the hw1 review - misconception remedial skipped');
   }
 
   log('learning loop: diagnostics, tutor, practice, reassessment for the students...');
 
-  await withLlmRetry('sara diagnostic', async () => {
+  try {
     const saraDiagnostic = await learnerDiagnosticService.startDiagnostic(sara, course.id, {
       topicIds: [topicSets.id],
       questionsPerTopic: 2,
@@ -424,15 +535,16 @@ async function main() {
       await learnerDiagnosticService.submitAnswer(sara, course.id, saraDiagnostic.id, {
         questionId: question.id,
         content:
-          'تقاطع المجموعتين A و B هو مجموعة كل العناصر المشتركة بينهما ويُرمز له بـ A ∩ B، ' +
-          'ومثاله {1,2} ∩ {2,3} = {2} كما في المحاضرة.',
+          'The intersection of two sets A and B is the set of all elements common to both, denoted A ∩ B, ' +
+          'for example {1,2} ∩ {2,3} = {2} as in the lecture.',
       });
     }
-    log('sara: diagnostic completed on نظرية المجموعات (evidence written)');
-  });
+    log('sara: diagnostic completed on Set Theory (evidence written)');
+  } catch (error) {
+    log(`WARN sara diagnostic skipped: ${error.message}`);
+  }
 
-  await withLlmRetry('mona diagnostic', async () => {
-
+  try {
     const monaDiagnostic = await learnerDiagnosticService.startDiagnostic(mona, course.id, {
       topicIds: [topicGraphs.id],
       questionsPerTopic: 2,
@@ -440,43 +552,45 @@ async function main() {
     const monaQuestions = await learnerDiagnosticService.getDiagnostic(mona, course.id, monaDiagnostic.id);
     await learnerDiagnosticService.submitAnswer(mona, course.id, monaDiagnostic.id, {
       questionId: monaQuestions.questions[0].id,
-      content: 'مش فاكرة حاجة، صدقني',
+      content: 'I do not remember anything about this topic.',
     });
     for (const question of monaQuestions.questions.slice(1)) {
       await learnerDiagnosticService.submitAnswer(mona, course.id, monaDiagnostic.id, {
         questionId: question.id,
         content:
-          'المسار هو سلسلة حواف متتالية بين رأسين، والدورة مسار مغلق يعود إلى نقطة البداية، ' +
-          'ومثال الدورة هو المثلث بين ثلاثة رؤوس.',
+          'A path is a chain of consecutive edges between two vertices, and a cycle is a closed path that returns to its start, ' +
+          'for example the triangle between three vertices.',
       });
     }
-    log('mona: diagnostic completed on نظرية المخططات (one weak answer, one strong)');
-  });
+    log('mona: diagnostic completed on Graph Theory (one weak answer, one strong)');
+  } catch (error) {
+    log(`WARN mona diagnostic skipped: ${error.message}`);
+  }
 
-  await withLlmRetry('mona tutor', async () => {
-
+  try {
     const monaTutorSession = await tutorService.createSession(mona, course.id, {
       topicId: topicGraphs.id,
       mode: 'explanation',
     });
     await tutorService.askQuestion(mona, course.id, monaTutorSession.id, {
-      content: 'إيه الفرق بين المسار والدورة في المخطط مع مثال؟',
+      content: 'What is the difference between a path and a cycle in a graph, with an example?',
     });
-    log('mona: tutor session answered from the trusted Arabic lecture (grounded + cited)');
-  });
+    log('mona: tutor session answered from the trusted lecture (grounded + cited)');
+  } catch (error) {
+    log(`WARN mona tutor session skipped: ${error.message}`);
+  }
 
-  await withLlmRetry('sara practice', async () => {
-
+  try {
     const saraPractice = await practiceService.startSession(sara, course.id, {
       topicId: topicColoring.id,
       questionsCount: 2,
     });
     const practiceSession = await practiceService.getSession(sara, course.id, saraPractice.id);
     const practiceAnswers = [
-      'تلوين المخطط هو إسناد ألوان إلى الرؤوس بحيث لا يتشارك رأسان متجاوران في اللون نفسه، ' +
-        'والعدد الكرومي هو أقل عدد ألوان يكفي لتلوين المخطط بالكامل.',
-      'نلوّن الرؤوس بالترتيب ونختار لونًا مختلفًا عن ألوان الجيران، ونكرر حتى تتحقق كل الحواف ' +
-        'ثم نتحقق من صحة التلوين عند كل حافة كما في المثال المحلول.',
+      'A graph coloring assigns colors to vertices so that no two adjacent vertices share the same color, ' +
+        'and the chromatic number is the smallest number of colors that suffices to color the whole graph.',
+      'We color the vertices in order, picking a color different from all colored neighbors, repeating until every edge ' +
+        'is satisfied, then we verify the coloring edge by edge as in the worked example.',
     ];
     for (const [index, question] of practiceSession.questions.entries()) {
       await practiceService.submitAnswer(sara, course.id, saraPractice.id, {
@@ -484,11 +598,12 @@ async function main() {
         content: practiceAnswers[index % practiceAnswers.length],
       });
     }
-    log('sara: practice session completed on تلوين المخططات');
-  });
+    log('sara: practice session completed on Graph Coloring');
+  } catch (error) {
+    log(`WARN sara practice skipped: ${error.message}`);
+  }
 
-  await withLlmRetry('sara reassessment', async () => {
-
+  try {
     const saraReassessment = await reassessmentService.startSession(sara, course.id, {
       topicId: topicSets.id,
       questionsCount: 2,
@@ -497,55 +612,64 @@ async function main() {
       await reassessmentService.submitAnswer(sara, course.id, saraReassessment.id, {
         questionId: question.id,
         content:
-          'اتحاد المجموعتين A و B هو مجموعة كل العناصر التي تنتمي إلى A أو B أو كليهما ويكتب A ∪ B، ' +
-          'والتقاطع يقتصر على العناصر المشتركة، ومثال: {1,2} ∪ {2,3} = {1,2,3} و {1,2} ∩ {2,3} = {2}.',
+          'The union of two sets A and B is the set of all elements that belong to A or B or both, written A ∪ B, ' +
+          'while the intersection keeps only the common elements; example: {1,2} ∪ {2,3} = {1,2,3} and {1,2} ∩ {2,3} = {2}.',
       });
     }
     await reassessmentService.getLearningGain(sara, course.id);
-    log('sara: reassessment completed on نظرية المجموعات + learning-gain report ready');
-  });
+    log('sara: reassessment completed on Set Theory + learning-gain report ready');
+  } catch (error) {
+    log(`WARN sara reassessment skipped: ${error.message}`);
+  }
 
+  try {
+    const saraProfile = await learnerModelService.getLearnerModel(sara, course.id);
+    log(
+      `sara learner model: ${saraProfile.mastery.length} topics tracked - ` +
+        saraProfile.mastery
+          .map((topic) => `${topic.title}=${topic.masteryLevel}`)
+          .join(', '),
+    );
+    log(`sara recommended next action: ${saraProfile.recommendedNextAction?.message ?? 'n/a'}`);
+  } catch (error) {
+    log(`WARN sara learner model skipped: ${error.message}`);
+  }
 
-  const saraProfile = await learnerModelService.getLearnerModel(sara, course.id);
-  log(
-    `sara learner model: ${saraProfile.mastery.length} topics tracked - ` +
-      saraProfile.mastery
-        .map((topic) => `${topic.title}=${topic.masteryLevel}`)
-        .join(', '),
-  );
-  log(`sara recommended next action: ${saraProfile.recommendedNextAction?.message ?? 'n/a'}`);
-
-  log('personal learner: ahmed@gmail.com (no university) opens a personal workspace');
-  const ahmed = await registerUser({
-    email: 'ahmed@gmail.com',
-    firstName: 'أحمد',
-    lastName: 'سيد',
+  log('personal learner: adam.hayes@gmail.com (no university) opens a personal workspace');
+  const adam = await registerUser({
+    email: 'adam.hayes@gmail.com',
+    firstName: 'Adam',
+    lastName: 'Hayes',
     role: ROLES.STUDENT,
-    languagePreference: LANGUAGES.ARABIC,
+    languagePreference: LANGUAGES.ENGLISH,
   });
-  const ahmedCourse = await coursesService.createCourse(ahmed, {
-    title: 'مساحتي الشخصية: أساسيات بايثون',
-    description: 'كورس شخصي يديره الطالب بنفسه خارج أي جامعة.',
+  const adamCourse = await coursesService.createCourse(adam, {
+    title: 'My Personal Space: Python Basics',
+    description: 'A personal course managed by the student outside any university.',
   });
-  const ahmedTopic = await coursesService.addTopic(ahmed, ahmedCourse.id, {
-    title: 'المتغيرات والقوائم',
+  const adamTopic = await coursesService.addTopic(adam, adamCourse.id, {
+    title: 'Variables and Lists',
     order: 1,
   });
-  await knowledgeIngestionService.uploadMaterial(ahmed, ahmedCourse.id, {
-    title: 'ملزمة: المتغيرات والقوائم في بايثون',
+  await knowledgeIngestionService.uploadMaterial(adam, adamCourse.id, {
+    title: 'Handout: Variables and Lists in Python',
     sourceType: 'textbook',
     mimeType: 'text/plain',
     fileName: 'python-basics.txt',
     content: PYTHON_BASICS_MATERIAL,
   });
-  const ahmedTutorSession = await tutorService.createSession(ahmed, ahmedCourse.id, {
-    topicId: ahmedTopic.id,
-    mode: 'explanation',
-  });
-  await tutorService.askQuestion(ahmed, ahmedCourse.id, ahmedTutorSession.id, {
-    content: 'إيه الفرق بين الليست والتوبل في بايثون مع مثال؟',
-  });
-  log('ahmed: personal course + self-uploaded material + grounded tutor answer');
+  try {
+    const adamTutorSession = await tutorService.createSession(adam, adamCourse.id, {
+      topicId: adamTopic.id,
+      mode: 'explanation',
+    });
+    await tutorService.askQuestion(adam, adamCourse.id, adamTutorSession.id, {
+      content: 'What is the difference between a list and a tuple in Python, with an example?',
+    });
+    log('adam: personal course + self-uploaded material + grounded tutor answer');
+  } catch (error) {
+    log(`WARN adam tutor session skipped: ${error.message}`);
+  }
 
   const uniGuidance = await authService.getRegistrationGuidance('newcomer@menoufia.edu.eg');
   log(
@@ -562,52 +686,57 @@ async function main() {
   });
   let suspendedLoginBlocked = false;
   try {
-    await authService.login({ email: sara.email, password: DEMO_PASSWORD });
+    await authService.login({ email: requester.email, password: DEMO_PASSWORD });
   } catch {
     suspendedLoginBlocked = true;
   }
   if (!suspendedLoginBlocked) {
-    throw new Error('contract gate failed: sara logged in while the university is suspended');
+    throw new Error('contract gate failed: farida logged in while the university is suspended');
   }
   await authService.login({ email: admin.email, password: DEMO_PASSWORD });
-  log('contract suspended: student login blocked, institution admin still signs in');
+  await authService.login({ email: sara.email, password: DEMO_PASSWORD });
+  log('contract suspended: university-track login blocked while personal-track students still sign in');
   await academicStructureService.updateInstitution(admin, admin.institutionId, {
     isActive: true,
   });
-  await authService.login({ email: sara.email, password: DEMO_PASSWORD });
-  log('contract reactivated: student login restored');
+  await authService.login({ email: requester.email, password: DEMO_PASSWORD });
+  log('contract reactivated: university login restored');
 
   await analyticsService.recomputeCourse(course.id);
+  await analyticsService.recomputeCourse(osCourse.id);
 
-  const [auditCount, evidenceCount, evaluationCount, snapshot] = await Promise.all([
+  const [auditCount, evidenceCount, evaluationCount, snapshot, osSnapshot] = await Promise.all([
     mongoose.connection.collection('auditlogs').countDocuments(),
     mongoose.connection.collection('learningevidences').countDocuments(),
     mongoose.connection.collection('aievaluations').countDocuments(),
     analyticsService.getCourseAnalytics(instructor, course.id),
+    analyticsService.getCourseAnalytics(instructor, osCourse.id),
   ]);
 
   console.log(
     [
       '',
       '════════════════════════════════════════════════════════════',
-      ' ✔ Seed complete - Menoufia University demo',
+      ' ✔ Seed complete - English dataset covering every feature',
       '════════════════════════════════════════════════════════════',
-      ` course        CS201 - الرياضيات المتقطعة`,
-      ` assignments   واجب 1 (5/6 finalized), واجب 2 (OPEN), واجب 3 (DRAFT)`,
+      ` courses       CS201 Discrete Mathematics | CS301 Operating Systems`,
+      ` assignments   CS201: hw1 decided mix, hw2 OPEN (tf+mcq+essay), hw3 DRAFT | CS301: os1 OPEN`,
+      ` students      6 personal-track learners (no university) + farida (university, pending request)`,
       ` ai evaluations ${evaluationCount} | final grades written | audit rows ${auditCount}`,
-      ` learning evidence rows ${evidenceCount} | analytics computedAt ${snapshot.computedAt}`,
+      ` learning evidence rows ${evidenceCount} | snapshots CS201 ${snapshot.computedAt} | CS301 ${osSnapshot.computedAt}`,
       ` learning loop  ${remedialPublished} remedial published | diagnostics, tutor, practice, reassessment + gain report seeded`,
-      ` question types  واجب 2 mixes auto-graded objective (true_false + multiple_choice) with AI-graded essay`,
-      ` enrollment req 1 pending request (farida -> CS201) awaiting admin approval`,
-      ` contract       suspension blocks institutional login (verified live) | admin keeps access`,
-      ` personal       ahmed@gmail.com self-served course + material + tutor (no university)`,
-      `               finalized ${snapshot.totals.finalizedCount} | pending ${snapshot.totals.pendingReviewCount} | avg ${snapshot.totals.avgCoursePercentage}%`,
+      ` visibility    grades ON (hw1, os1) | human feedback ON (hw1) | feedback hidden by default elsewhere`,
+      ` enrollment    1 pending request (farida -> CS201) awaiting admin approval`,
+      ` contract      suspension blocks university login, personal-track students unaffected (verified live)`,
+      ` personal      adam.hayes@gmail.com self-served course + material + tutor (no university)`,
+      `               CS201 finalized ${snapshot.totals.finalizedCount} | pending ${snapshot.totals.pendingReviewCount} | avg ${snapshot.totals.avgCoursePercentage}%`,
+      `               CS301 finalized ${osSnapshot.totals.finalizedCount} | pending ${osSnapshot.totals.pendingReviewCount} | avg ${osSnapshot.totals.avgCoursePercentage}%`,
       '────────────────────────────────────────────────────────────',
       ` logins (password: ${DEMO_PASSWORD})`,
       '   institution_admin  admin@menoufia.edu.eg',
       '   instructor         hassan.farid@menoufia.edu.eg',
-      '   students           sara | mona | nadia | yara | omar | mariam  (@menoufia.edu.eg)',
-      '   personal student   ahmed@gmail.com  (personal workspace)',
+      '   students           sara.mitchell | mona.reyes | nadia.khalil | yara.hansen | omar.diaz | mariam.taleb  (@gmail.com)',
+      '   personal student   adam.hayes@gmail.com  (personal workspace)',
       '   requester          farida@menoufia.edu.eg  (pending enrollment request)',
       '────────────────────────────────────────────────────────────',
       ' mariam keeps a DRAFT submission so the student flow can be demoed live.',

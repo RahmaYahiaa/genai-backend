@@ -55,6 +55,13 @@ export function createGradingService({
     return { sources: buildSources(question, contexts), contexts };
   }
 
+  const GRADING_SYSTEM_PROMPT =
+    'You are an academic grading assistant. Grade the student answer against the provided ' +
+    'model answer, rubric and trusted course excerpts only. Respond with JSON only using this shape: ' +
+    '{"score": number between 0 and maxScore, "correctness": "CORRECT"|"PARTIAL"|"INCORRECT", ' +
+    '"confidence": "HIGH"|"MEDIUM"|"LOW", "feedbackText": string, ' +
+    '"misconceptions": [{"code": string, "description": string}], "rubricBreakdown": object or null}.';
+
   async function runModel({ question, contexts, answerText, topicTitle }) {
     const payload = {
       questionText: question.questionText,
@@ -76,6 +83,8 @@ export function createGradingService({
       try {
         const raw = await llmProvider.completeJson({
           task: 'grade_assignment_answer',
+          system: GRADING_SYSTEM_PROMPT,
+          user: JSON.stringify(payload),
           payload,
         });
         return llmGradingOutputSchema.parse(raw);

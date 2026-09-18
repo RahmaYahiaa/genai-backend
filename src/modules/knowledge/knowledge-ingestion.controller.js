@@ -19,6 +19,7 @@ export function createKnowledgeIngestionController({ knowledgeIngestionService }
         file: req.file,
         title: req.validated.body?.title,
         sourceType: req.validated.body?.sourceType,
+        topicId: req.validated.body?.topicId,
       },
     );
     sendCreated(res, material);

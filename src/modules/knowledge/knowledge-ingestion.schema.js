@@ -4,6 +4,7 @@ import { objectIdField } from '../academic-structure/academic-structure.schema.j
 
 export const createMaterialSchema = z.object({
   title: z.string().trim().min(2, 'title is required').max(200),
+  topicId: objectIdField('topicId').nullable().optional(),
   sourceType: z
     .enum([
       MATERIAL_SOURCE_TYPES.OFFICIAL_SLIDES,
@@ -21,6 +22,7 @@ export const createMaterialSchema = z.object({
 
 export const uploadMaterialFileFieldsSchema = z.object({
   title: z.string().trim().min(2, 'title must be at least 2 characters').max(200).optional(),
+  topicId: objectIdField('topicId').nullable().optional(),
   sourceType: z
     .enum([
       MATERIAL_SOURCE_TYPES.OFFICIAL_SLIDES,

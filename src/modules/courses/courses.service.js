@@ -80,11 +80,21 @@ export function createCoursesService({
     if (!course) {
       throw new NotFoundError('Course not found');
     }
-    if (user.accountType === ACCOUNT_TYPES.INDIVIDUAL) {
-      throw new FeatureNotAvailableError();
-    }
     if (course.isPersonal || !course.institutionId) {
       throw new FeatureNotAvailableError();
+    }
+    if (user.role === ROLES.STUDENT) {
+      if (await enrollmentRepository.exists(user.id, course._id)) {
+        return course;
+      }
+      if (
+        user.accountType === ACCOUNT_TYPES.INSTITUTIONAL &&
+        user.institutionId &&
+        String(user.institutionId) === String(course.institutionId)
+      ) {
+        return course;
+      }
+      throw new NotFoundError('Course not found');
     }
     if (!user.institutionId || String(user.institutionId) !== String(course.institutionId)) {
       throw new NotFoundError('Course not found');
@@ -417,14 +427,8 @@ export function createCoursesService({
         throw new ValidationError('studentId is required when enrolling by an admin');
       }
       const student = await authService.getProfile(requestedStudentId);
-      if (
-        student.role !== ROLES.STUDENT ||
-        student.accountType !== ACCOUNT_TYPES.INSTITUTIONAL ||
-        String(student.institutionId) !== String(course.institutionId)
-      ) {
-        throw new ForbiddenError(
-          'Target user must be an institutional student of the same institution',
-        );
+      if (student.role !== ROLES.STUDENT) {
+        throw new ForbiddenError('Target user must be a student account');
       }
       studentId = student.id;
     } else if (user.role === ROLES.STUDENT) {

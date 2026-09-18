@@ -136,6 +136,15 @@ export function createPracticeService({
     return toPublicPracticeSession(session);
   }
 
+  async function listSessions(user, courseId) {
+    const course = await coursesService.ensureStudentCourseAccess(user, courseId);
+    const sessions = await practiceRepository.listByStudentCourse(
+      user.id,
+      courseDocumentId(course),
+    );
+    return sessions.map(toPublicPracticeSession);
+  }
+
   // --- Answer a practice question (flow steps 15-16) ---
 
   async function submitAnswer(user, courseId, practiceSessionId, data) {
@@ -232,5 +241,5 @@ export function createPracticeService({
     };
   }
 
-  return { startSession, getSession, submitAnswer };
+  return { startSession, listSessions, getSession, submitAnswer };
 }

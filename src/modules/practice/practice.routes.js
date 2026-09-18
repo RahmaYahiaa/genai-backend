@@ -19,6 +19,12 @@ export function createPracticeRouter({ controller, middlewares, validators }) {
   );
 
   router.get(
+    '/courses/:courseId/practice/sessions',
+    validators.courseIdParam,
+    controller.listSessions,
+  );
+
+  router.get(
     '/courses/:courseId/practice/sessions/:practiceSessionId',
     validators.practiceSessionIdParam,
     controller.getSession,

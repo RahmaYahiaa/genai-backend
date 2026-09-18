@@ -42,7 +42,18 @@ export function createAnthropicLlmProvider({ apiKey, model, maxTokens }) {
     name: 'anthropic',
     model,
 
-    async completeJson({ system, user }) {
+    async completeJson({ system, user, payload: payloadInput }) {
+      const systemText =
+        typeof system === 'string' && system.trim()
+          ? system
+          : 'You are an academic assistant. Respond with valid JSON only.';
+      let userText = typeof user === 'string' && user.trim() ? user : '';
+      if (!userText && payloadInput) {
+        userText = JSON.stringify(payloadInput);
+      }
+      if (!userText) {
+        throw new AiProviderError('LLM request is missing its user prompt');
+      }
       if (!fetchFn) {
         throw new AiProviderError('LLM provider request failed: fetch is not available in this runtime');
       }
@@ -59,8 +70,8 @@ export function createAnthropicLlmProvider({ apiKey, model, maxTokens }) {
           body: JSON.stringify({
             model,
             max_tokens: maxTokens,
-            system,
-            messages: [{ role: 'user', content: user }],
+            system: systemText,
+            messages: [{ role: 'user', content: userText }],
           }),
         });
       } catch {

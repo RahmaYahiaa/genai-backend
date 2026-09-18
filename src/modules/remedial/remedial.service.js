@@ -122,23 +122,31 @@ export function createRemedialService({
       });
     }
 
+    const REMEDIAL_SYSTEM_PROMPT =
+      'You are an academic content author. Produce remedial study content grounded strictly in the ' +
+      'provided trusted course excerpts. Respond with JSON only using this shape: ' +
+      '{"title": string, "body": string}.';
+
     let output = null;
     let lastError = null;
     for (let attempt = 0; attempt < GENERATION_ATTEMPTS; attempt += 1) {
       try {
+        const generationPayload = {
+          origin: payload.origin,
+          contentType: payload.contentType,
+          topicTitle: context.topicTitle,
+          misconception: context.misconception,
+          instructions: payload.instructions ?? null,
+          excerpts: contexts.map((contextEntry) => ({
+            id: contextEntry.chunkId,
+            text: contextEntry.snippet,
+          })),
+        };
         const raw = await llmProvider.completeJson({
           task: 'generate_remedial_content',
-          payload: {
-            origin: payload.origin,
-            contentType: payload.contentType,
-            topicTitle: context.topicTitle,
-            misconception: context.misconception,
-            instructions: payload.instructions ?? null,
-            excerpts: contexts.map((contextEntry) => ({
-              id: contextEntry.chunkId,
-              text: contextEntry.snippet,
-            })),
-          },
+          system: REMEDIAL_SYSTEM_PROMPT,
+          user: JSON.stringify(generationPayload),
+          payload: generationPayload,
         });
         output = remedialOutputSchema.parse(raw);
         break;

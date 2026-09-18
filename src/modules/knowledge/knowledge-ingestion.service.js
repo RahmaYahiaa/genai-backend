@@ -65,6 +65,7 @@ export function createKnowledgeIngestionService({
       institutionId: course.institutionId ?? null,
       isPersonal: Boolean(course.isPersonal),
       uploadedBy: user.id,
+      topicId: data.topicId ?? null,
       title: data.title,
       sourceType:
         data.sourceType ??
@@ -162,7 +163,7 @@ export function createKnowledgeIngestionService({
    * without indexing. A text-expecting file with no readable text (scanned
    * PDF) is rejected before anything is persisted.
    */
-  async function uploadMaterialFile(user, courseId, { file, title, sourceType }) {
+  async function uploadMaterialFile(user, courseId, { file, title, sourceType, topicId }) {
     const course = await coursesService.ensureCourseWriteAccess(user, courseId);
     const originalName = path.basename(file.originalname || 'material').slice(0, 255);
 
@@ -177,6 +178,7 @@ export function createKnowledgeIngestionService({
       institutionId: course.institutionId ?? null,
       isPersonal: Boolean(course.isPersonal),
       uploadedBy: user.id,
+      topicId: topicId ?? null,
       title: resolveUploadTitle(title, originalName),
       sourceType: sourceType ?? defaultSourceType(course),
       mimeType: file.mimetype || 'application/octet-stream',

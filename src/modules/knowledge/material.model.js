@@ -25,6 +25,11 @@ const materialSchema = new mongoose.Schema(
       default: null,
     },
     isPersonal: { type: Boolean, default: false },
+    topicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Topic',
+      default: null,
+    },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -71,6 +76,7 @@ export function toPublicMaterial(material) {
     courseId: material.courseId.toString(),
     institutionId: material.institutionId ? material.institutionId.toString() : null,
     isPersonal: Boolean(material.isPersonal),
+    topicId: material.topicId ? material.topicId.toString() : null,
     uploadedBy: material.uploadedBy.toString(),
     title: material.title,
     sourceType: material.sourceType,

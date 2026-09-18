@@ -22,6 +22,12 @@ export function createLearnerDiagnosticRouter({ controller, middlewares, validat
     controller.getLearnerModel,
   );
 
+  router.get(
+    '/courses/:courseId/diagnostics',
+    validators.courseIdParam,
+    controller.listDiagnostics,
+  );
+
   router.post(
     '/courses/:courseId/diagnostics',
     validators.courseIdParam,

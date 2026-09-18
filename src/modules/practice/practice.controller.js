@@ -11,6 +11,14 @@ export function createPracticeController({ practiceService }) {
     sendCreated(res, session);
   });
 
+  const listSessions = asyncHandler(async (req, res) => {
+    const sessions = await practiceService.listSessions(
+      req.user,
+      req.validated.params.courseId,
+    );
+    sendSuccess(res, { data: sessions });
+  });
+
   const getSession = asyncHandler(async (req, res) => {
     const session = await practiceService.getSession(
       req.user,
@@ -30,5 +38,5 @@ export function createPracticeController({ practiceService }) {
     sendCreated(res, result);
   });
 
-  return { startSession, getSession, submitAnswer };
+  return { startSession, listSessions, getSession, submitAnswer };
 }

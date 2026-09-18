@@ -123,8 +123,10 @@ export function createGroqLlmProvider({
     } catch {
       throw new AiProviderError('LLM provider request failed');
     }
-    if (response.status === 429) {
-      await sleep(3000);
+    // groq's free tier answers 429 under burst load (seeding, bulk grading):
+    // back off exponentially instead of failing the caller
+    for (let attempt = 0; attempt < 5 && response.status === 429; attempt += 1) {
+      await sleep(5000 * 2 ** attempt);
       try {
         response = await fetch(GROQ_ENDPOINT, {
           method: 'POST',
@@ -149,13 +151,7 @@ export function createGroqLlmProvider({
     }
     if (!response.ok) {
       resolvedModel = null;
-      let detail = '';
-      try {
-        detail = (await response.text()).replace(/\s+/g, ' ').slice(0, 180);
-      } catch {
-        // body unreadable - status alone still surfaces
-      }
-      throw new AiProviderError(`LLM provider returned status ${response.status}${detail ? `: ${detail}` : ''}`);
+      throw new AiProviderError(`LLM provider returned status ${response.status}`);
     }
     const payload = await response.json();
     return payload?.choices?.[0]?.message?.content ?? '';
@@ -199,24 +195,40 @@ export function createGroqLlmProvider({
     return payload?.choices?.[0]?.message?.content ?? '';
   }
 
+  function normalizePrompt({ system, user, payload }) {
+    const systemText =
+      typeof system === 'string' && system.trim()
+        ? system
+        : 'You are an academic assistant. Respond with valid JSON only.';
+    let userText = typeof user === 'string' && user.trim() ? user : '';
+    if (!userText && payload) {
+      userText = JSON.stringify(payload);
+    }
+    if (!userText) {
+      throw new AiProviderError('LLM request is missing its user prompt');
+    }
+    return { systemText, userText };
+  }
+
   return {
     name: 'groq',
     get model() {
       return resolvedModel ?? groqModel;
     },
 
-    async completeJson({ system, user }) {
+    async completeJson(prompt) {
+      const { systemText, userText } = normalizePrompt(prompt);
       const errors = [];
       if (groqApiKey) {
         try {
-          return extractJson(await callGroq(system, user));
+          return extractJson(await callGroq(systemText, userText));
         } catch (error) {
           errors.push(`groq: ${error?.message ?? 'failed'}`);
         }
       }
       if (openrouterApiKey) {
         try {
-          return extractJson(await callOpenRouter(system, user));
+          return extractJson(await callOpenRouter(systemText, userText));
         } catch (error) {
           errors.push(`openrouter: ${error?.message ?? 'failed'}`);
         }

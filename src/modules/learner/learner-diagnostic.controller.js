@@ -58,9 +58,18 @@ export function createLearnerDiagnosticController({
     sendSuccess(res, { data: model });
   });
 
+  const listDiagnostics = asyncHandler(async (req, res) => {
+    const assessments = await learnerDiagnosticService.listDiagnostics(
+      req.user,
+      req.validated.params.courseId,
+    );
+    sendSuccess(res, { data: assessments });
+  });
+
   return {
     getLearnerProfile,
     startDiagnostic,
+    listDiagnostics,
     getDiagnostic,
     submitAnswer,
     listEvidence,

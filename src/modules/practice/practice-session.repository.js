@@ -8,6 +8,10 @@ export async function findById(sessionId) {
   return PracticeSession.findById(sessionId).lean();
 }
 
+export async function listByStudentCourse(studentId, courseId) {
+  return PracticeSession.find({ studentId, courseId }).sort({ createdAt: -1 }).lean();
+}
+
 export async function pushAnswer(sessionId, answer) {
   return PracticeSession.findByIdAndUpdate(
     sessionId,
