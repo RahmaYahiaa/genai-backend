@@ -49,12 +49,16 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().default(''),
   OPENROUTER_MODEL: z.string().default('google/gemini-3.8-flash'),
   OPENROUTER_BASE_URL: z.string().default('https://openrouter.ai/api/v1'),
-  TRANSCRIPTION_PROVIDER: z.enum(['stub']).default('stub'),
+  TRANSCRIPTION_PROVIDER: z.enum(['groq']).default('groq'),
+  GROQ_TRANSCRIPTION_MODEL: z.string().default('whisper-large-v3-turbo'),
 
   EMBEDDING_PROVIDER: z.enum(['gemini']).default('gemini'),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().min(64).max(4096).default(768),
   GEMINI_API_KEY: z.string().default(''),
   GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
+
+  ASSESSMENT_ENGINE_ENABLED: z.enum(['true', 'false']).default('true'),
+  ASSESSMENT_ENGINE_URL: z.string().min(1).default('http://localhost:8002'),
 
   CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(8000).default(1200),
   CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).max(1000).default(150),
@@ -126,6 +130,7 @@ export const config = Object.freeze({
     openrouterModel: rawConfig.OPENROUTER_MODEL,
     openrouterBaseUrl: rawConfig.OPENROUTER_BASE_URL,
     transcriptionProvider: rawConfig.TRANSCRIPTION_PROVIDER,
+    groqTranscriptionModel: rawConfig.GROQ_TRANSCRIPTION_MODEL,
     embeddingProvider: rawConfig.EMBEDDING_PROVIDER,
     embeddingDimensions: rawConfig.EMBEDDING_DIMENSIONS,
     geminiApiKey: rawConfig.GEMINI_API_KEY,
@@ -144,6 +149,11 @@ export const config = Object.freeze({
 
   uploads: {
     dir: rawConfig.UPLOADS_DIR,
+  },
+
+  assessmentEngine: {
+    enabled: rawConfig.ASSESSMENT_ENGINE_ENABLED === 'true',
+    apiUrl: rawConfig.ASSESSMENT_ENGINE_URL.replace(/\/+$/, ''),
   },
 
   rateLimit: {

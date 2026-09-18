@@ -12,6 +12,7 @@ import * as submissionAnswerRepository from '../submissions/submission-answer.re
 import * as courseRepository from '../courses/course.repository.js';
 import { logger } from '../../config/logger.js';
 import { createGradingService } from './grading.service.js';
+import { assessmentEngine } from '../assessment-engine/assessment-engine.service.js';
 import { createGradingQueue } from './grading-queue.js';
 import { createGradingController } from './grading.controller.js';
 import { createGradingRouter } from './grading.routes.js';
@@ -36,6 +37,7 @@ export const gradingService = createGradingService({
   courseRepository,
   retrievalService,
   llmProvider,
+  assessmentEngine,
 });
 
 export const gradingQueue = createGradingQueue({ gradingService, logger });

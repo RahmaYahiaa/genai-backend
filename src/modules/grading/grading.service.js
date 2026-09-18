@@ -66,6 +66,7 @@ export function createGradingService({
   courseRepository,
   retrievalService,
   llmProvider,
+  assessmentEngine = null,
 }) {
   async function collectSources(courseId, question) {
     if (question.modelAnswer && question.rubricText) {
@@ -174,18 +175,21 @@ export function createGradingService({
   }
 
   async function gradeAnswerCore({ courseId, topicTitle, question, answerText, selectedOptionIds = null }) {
-    if (OBJECTIVE_TYPES.includes(question.type)) {
-      const deterministic = objectiveEvaluation(question, selectedOptionIds, answerText);
+    // Repository documents expose `questionType`; preview payloads may carry
+    // `type`. Normalize once so the deterministic objective path always fires.
+    const normalizedQuestion = { ...question, type: question.type ?? question.questionType };
+    if (OBJECTIVE_TYPES.includes(normalizedQuestion.type)) {
+      const deterministic = objectiveEvaluation(normalizedQuestion, selectedOptionIds, answerText);
       if (deterministic) return deterministic;
     }
-    const { sources, contexts } = await collectSources(courseId, question);
+    const { sources, contexts } = await collectSources(courseId, normalizedQuestion);
     if (!sources.model_answer && !sources.rubric && contexts.length === 0) {
       return insufficientEvaluation(sources, 'NO_SOURCE_AVAILABLE');
     }
 
     let output;
     try {
-      output = await runModel({ question, contexts, answerText, topicTitle });
+      output = await runModel({ question: normalizedQuestion, contexts, answerText, topicTitle });
     } catch {
       return insufficientEvaluation(sources, 'INVALID_MODEL_OUTPUT');
     }
@@ -231,6 +235,19 @@ export function createGradingService({
     const course = await courseRepository.findById(assignment.courseId);
     const topicTitle =
       (course?.topics ?? []).find((t) => String(t._id) === String(question.topicId))?.title ?? '';
+    const questionType = question.type ?? question.questionType;
+    if (assessmentEngine?.isEnabled() && !OBJECTIVE_TYPES.includes(questionType) && course) {
+      try {
+        const engineEvaluation = await assessmentEngine.previewQuestion({
+          course,
+          question,
+          answerText: payload.trialAnswer,
+        });
+        if (engineEvaluation) return toPublicShape(engineEvaluation);
+      } catch (error) {
+        logger.warn(`assessment engine preview failed, falling back to local grading: ${error?.message}`);
+      }
+    }
     const evaluation = await gradeAnswerCore({
       courseId: assignment.courseId,
       topicTitle,
@@ -257,6 +274,21 @@ export function createGradingService({
     const questions = await assignmentQuestionRepository.listByAssignment(submission.assignmentId);
     const course = await courseRepository.findById(assignment.courseId);
 
+    let engineEvaluations = null;
+    if (assessmentEngine?.isEnabled() && course && questions.length > 0 && answers.length > 0) {
+      try {
+        engineEvaluations = await assessmentEngine.gradeAttempt({
+          course,
+          assignment,
+          questions,
+          answers,
+          studentId: submission.studentId,
+        });
+      } catch (error) {
+        logger.warn(`assessment engine grading failed, falling back to local AI path: ${error?.message}`);
+      }
+    }
+
     for (const answer of answers) {
       const existing = await aiEvaluationRepository.findByAnswerId(answer._id);
       if (existing) continue;
@@ -264,7 +296,21 @@ export function createGradingService({
       if (!question) continue;
       const topicTitle =
         (course?.topics ?? []).find((t) => String(t._id) === String(question.topicId))?.title ?? '';
-      let evaluation;
+      let evaluation = engineEvaluations?.get(String(question._id)) ?? null;
+      if (evaluation) {
+        await aiEvaluationRepository.create({
+          answerId: answer._id,
+          attemptId: attempt._id,
+          submissionId,
+          assignmentId: submission.assignmentId,
+          questionId: question._id,
+          courseId: assignment.courseId,
+          studentId: submission.studentId,
+          topicId: question.topicId,
+          ...evaluation,
+        });
+        continue;
+      }
       try {
         evaluation = await gradeAnswerCore({
           courseId: assignment.courseId,

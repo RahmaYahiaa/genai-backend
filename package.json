@@ -16,7 +16,10 @@
     "seed": "node src/seeders/seed.js",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "npm run test:grading && npm run test:engine",
+    "test:grading": "node tests/grading.unit.test.mjs",
+    "test:engine": "node tests/engine.live.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
