@@ -4,7 +4,6 @@ import { AI_CONFIDENCE, AI_CORRECTNESS } from '../../config/constants.js';
 
 const previewEvaluationSchema = z.object({
   trialAnswer: z.string().trim().min(1, 'trialAnswer is required').max(20000),
-  selectedOptionIds: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
 });
 
 // Real models answer with varying casing/whitespace; normalize before the

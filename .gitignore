@@ -9,6 +9,7 @@ node_modules/
 # Runtime data (user uploads and generated files - data, never source code)
 /uploads/
 /data/
+/scripts
 
 # Local-only documentation (not pushed to GitHub; root folder only so
 # src/api/v1/docs/ source code stays tracked)
