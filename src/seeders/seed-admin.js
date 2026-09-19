@@ -63,6 +63,21 @@ async function ensureUser({ email, firstName, lastName, role, institutionId, aca
     log(`exists: ${email} (${role})`);
     return existing;
   }
+  if (role === ROLES.INSTITUTION_ADMIN) {
+    const user = await User.create({
+      email,
+      passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
+      firstName,
+      lastName,
+      role,
+      accountType: ACCOUNT_TYPES.INSTITUTIONAL,
+      institutionId,
+      languagePreference: LANGUAGES.ENGLISH,
+    });
+    if (academicNumber) await User.updateOne({ email }, { $set: { academicNumber } });
+    log(`created: ${email} (${role})`);
+    return user;
+  }
   const { user } = await authService.register({
     email,
     firstName,
@@ -138,7 +153,10 @@ async function main() {
 
   await Institution.updateOne(
     { _id: institutionId },
-    { $set: { contractEndsAt: CONTRACT_ENDS_AT, 'settings.allowDoctorCourseCreation': true } },
+    {
+      $set: { contractEndsAt: CONTRACT_ENDS_AT, 'settings.allowDoctorCourseCreation': true },
+      $addToSet: { emailDomains: 'menoufia.edu.eg' },
+    },
   );
   log(`institution: contract ends ${CONTRACT_ENDS_AT.toISOString().slice(0, 10)}, doctor course creation = on`);
 
