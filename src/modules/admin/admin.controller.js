@@ -1,7 +1,4 @@
-// Thin HTTP layer; permission logic lives in the service/middlewares.
 export function createAdminController({ adminService }) {
-  // GET /me — the admin shell's bootstrap: who am I, which keys do I hold,
-  // and which templates exist for assignment.
   async function getMe(req, res, next) {
     try {
       const payload = await adminService.officerMe(req.user);
@@ -11,5 +8,87 @@ export function createAdminController({ adminService }) {
     }
   }
 
-  return { getMe };
+  async function listUsers(req, res, next) {
+    try {
+      const data = await adminService.listUsers(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function listOfficers(req, res, next) {
+    try {
+      const data = await adminService.listOfficers(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function setUserActive(req, res, next) {
+    try {
+      const data = await adminService.setUserActive(req.user, req.params.userId, req.body.isActive);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function changeUserRole(req, res, next) {
+    try {
+      const data = await adminService.changeUserRole(req.user, req.params.userId, req.body.role);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function setAcademicNumber(req, res, next) {
+    try {
+      const data = await adminService.setAcademicNumber(req.user, req.params.userId, req.body.academicNumber);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function createOfficer(req, res, next) {
+    try {
+      const data = await adminService.createOfficer(req.user, req.body);
+      res.status(201).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function applyOfficerTemplate(req, res, next) {
+    try {
+      const data = await adminService.applyOfficerTemplate(req.user, req.params.userId, req.body.templateId);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function setOfficerScopes(req, res, next) {
+    try {
+      const data = await adminService.setOfficerScopes(req.user, req.params.userId, req.body.keys);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  return {
+    getMe,
+    listUsers,
+    listOfficers,
+    setUserActive,
+    changeUserRole,
+    setAcademicNumber,
+    createOfficer,
+    applyOfficerTemplate,
+    setOfficerScopes,
+  };
 }

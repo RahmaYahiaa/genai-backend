@@ -46,3 +46,17 @@ export const OFFICER_TEMPLATES = [
     ],
   },
 ];
+
+export const ADMIN_AUDIT_TYPES = {
+  USER_ACTIVATED: 'user.activated',
+  USER_DEACTIVATED: 'user.deactivated',
+  ROLE_CHANGED: 'role.changed',
+  PERMISSIONS_CHANGED: 'permissions.changed',
+  OFFICER_ADDED: 'officer.added',
+  BULK_IMPORTED: 'bulk.imported',
+  REQUEST_DECIDED: 'request.decided',
+  SETTINGS_CHANGED: 'settings.changed',
+  ACCOUNT_LINKED: 'account.linked',
+};
+
+export const ADMIN_AUDIT_TYPE_VALUES = Object.values(ADMIN_AUDIT_TYPES);
