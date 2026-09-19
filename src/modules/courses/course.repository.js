@@ -96,8 +96,13 @@ export async function hasStaffMember(courseId, userId) {
   return Boolean(course);
 }
 
-export async function listInstitutionCourses({ institutionId, q, skip, limit }) {
-  const filter = { institutionId, isPersonal: false, ...buildTextFilter(q) };
+export async function listInstitutionCourses({ institutionId, q, skip, limit, year }) {
+  const filter = {
+    institutionId,
+    isPersonal: false,
+    ...buildTextFilter(q),
+    ...(year ? { code: new RegExp(`^[a-z]*${Number(year)}`, 'i') } : {}),
+  };
   const [items, total] = await Promise.all([
     Course.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Course.countDocuments(filter),

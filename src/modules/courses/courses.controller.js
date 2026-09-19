@@ -91,13 +91,19 @@ export function createCoursesController({ coursesService }) {
   });
 
   const catalog = asyncHandler(async (req, res) => {
-    const { search, page, limit } = req.validated.query;
+    const { search, page, limit, year } = req.validated.query;
     const { items, total } = await coursesService.listCourseCatalog(req.user, {
       search,
       page,
       limit,
+      year,
     });
     sendSuccess(res, { data: items, meta: buildPaginationMeta({ page, limit, total }) });
+  });
+
+  const catalogSelfEnroll = asyncHandler(async (req, res) => {
+    const result = await coursesService.catalogSelfEnroll(req.user, req.validated.params.courseId);
+    sendCreated(res, result);
   });
 
   const requestEnrollment = asyncHandler(async (req, res) => {
@@ -166,5 +172,6 @@ export function createCoursesController({ coursesService }) {
     myEnrollmentRequests,
     listEnrollmentRequests,
     decideEnrollmentRequest,
+    catalogSelfEnroll,
   };
 }

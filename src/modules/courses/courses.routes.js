@@ -102,6 +102,13 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
     controller.requestEnrollment,
   );
 
+  router.post(
+    '/:courseId/catalog-enroll',
+    guards.authorize('student'),
+    validators.courseIdParam,
+    controller.catalogSelfEnroll,
+  );
+
   router.delete(
     '/:courseId/enroll/:studentId',
     guards.authorize('institution_admin'),

@@ -485,7 +485,12 @@ export function createCoursesService({
    * metadata only (never content) annotated with the caller's own enrollment
    * and request state so the UI can render join actions correctly.
    */
-  async function listCourseCatalog(user, { search, page, limit }) {
+  function courseYearOf(code) {
+    const match = /([1-6])\d{2}/.exec(String(code ?? ''));
+    return match ? Number(match[1]) : null;
+  }
+
+  async function listCourseCatalog(user, { search, page, limit, year }) {
     assertCatalogStudent(user);
     const skip = (page - 1) * limit;
     const result = await courseRepository.listInstitutionCourses({
@@ -493,6 +498,7 @@ export function createCoursesService({
       q: search,
       skip,
       limit,
+      year,
     });
     const [enrolledCourseIds, myRequests] = await Promise.all([
       enrollmentRepository.listCourseIds(user.id),
@@ -508,6 +514,7 @@ export function createCoursesService({
         id: course._id.toString(),
         title: course.title,
         code: course.code ?? null,
+        year: courseYearOf(course.code),
         description: course.description ?? null,
         isActive: course.isActive,
         enrolled: enrolledSet.has(course._id.toString()),
@@ -515,6 +522,35 @@ export function createCoursesService({
       })),
       total: result.total,
     };
+  }
+
+  async function catalogSelfEnroll(user, courseId) {
+    assertCatalogStudent(user);
+    const course = await getCourseOrNotFound(courseId);
+    if (course.isPersonal) {
+      throw new ForbiddenError('Personal courses do not use catalog enrollment');
+    }
+    if (!course.institutionId || String(user.institutionId) !== String(course.institutionId)) {
+      throw new ForbiddenError('Only students of this institution can enroll in its catalog courses');
+    }
+    if (await enrollmentRepository.exists(user.id, course._id)) {
+      throw new ConflictError('Already enrolled in this course');
+    }
+    const existing = await enrollmentRequestRepository.findByStudentAndCourse(user.id, course._id);
+    if (existing?.status === ENROLLMENT_REQUEST_STATUSES.PENDING) {
+      throw new ConflictError('You already have a pending request for this course');
+    }
+    if (existing?.status === ENROLLMENT_REQUEST_STATUSES.REJECTED) {
+      throw new ForbiddenError(
+        'Your request for this course was rejected - ask the institution admin before retrying (تم رفض طلبك لهذا المقرر - راجع مسؤول المؤسسة)',
+      );
+    }
+    await enrollmentRepository.create({
+      studentId: user.id,
+      courseId: course._id,
+      enrolledBy: user.id,
+    });
+    return { courseId: String(course._id), studentId: user.id, enrolled: true };
   }
 
   async function requestEnrollment(user, courseId, { note, proof }) {
@@ -653,6 +689,7 @@ export function createCoursesService({
     dropEnrollment,
     listEnrollments,
     listCourseCatalog,
+    catalogSelfEnroll,
     requestEnrollment,
     listMyEnrollmentRequests,
     listEnrollmentRequests,
