@@ -16,5 +16,11 @@ export function createAdminRouter({ controller, middlewares, guards, validators 
   router.patch('/officers/:userId/template', guards.authenticate, middlewares.requireSuperAdmin, validators.userIdParam, validators.template, controller.applyOfficerTemplate);
   router.patch('/officers/:userId/scopes', guards.authenticate, middlewares.requireSuperAdmin, validators.userIdParam, validators.scopes, controller.setOfficerScopes);
 
+  router.post('/imports', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.stageImport, controller.stageImport);
+  router.get('/imports', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), controller.listImports);
+  router.post('/imports/:batchId/confirm', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.batchIdParam, controller.confirmImport);
+  router.delete('/imports/:batchId', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.batchIdParam, controller.discardImport);
+  router.get('/invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.invitationsQuery, controller.listInvitations);
+
   return router;
 }

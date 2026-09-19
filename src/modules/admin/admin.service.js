@@ -6,7 +6,7 @@ import { ADMIN_AUDIT_TYPES, OFFICER_PERMISSION_KEY_VALUES, OFFICER_TEMPLATES } f
 
 const ROLE_LABEL_AR = { student: 'طالب', instructor: 'دكتور', institution_admin: 'مسؤول' };
 
-export function createAdminService({ adminRepository }) {
+export function createAdminService({ adminRepository, coursesService }) {
   async function permissionKeysOf(user) {
     if (user.role !== ROLES.INSTITUTION_ADMIN) return [];
     if (user.isSuperAdmin) return OFFICER_PERMISSION_KEY_VALUES;
@@ -166,6 +166,206 @@ export function createAdminService({ adminRepository }) {
     return result;
   }
 
+  function batchCounts(rows) {
+    return {
+      total: rows.length,
+      newCount: rows.filter((r) => r.verdict === 'new').length,
+      existingCount: rows.filter((r) => r.verdict === 'existing').length,
+      errorCount: rows.filter((r) => r.verdict === 'error').length,
+    };
+  }
+
+  async function stageImport(actor, { fileName, rows }) {
+    const seen = new Set();
+    const staged = [];
+    for (let i = 0; i < rows.length; i += 1) {
+      const raw = rows[i];
+      const email = String(raw.email ?? '').trim().toLowerCase();
+      const firstName = String(raw.firstName ?? '').trim();
+      const lastName = String(raw.lastName ?? '').trim();
+      const role = String(raw.role ?? '').trim().toLowerCase();
+      const courseCodes = (Array.isArray(raw.courseCodes) ? raw.courseCodes : []).map((c) => String(c).trim().toUpperCase()).filter(Boolean);
+      const base = { row: i + 2, firstName, lastName, email, role, courseCodes };
+      if (!firstName || !lastName || !email || (role !== 'student' && role !== 'instructor')) {
+        staged.push({ ...base, verdict: 'error', errorReason: { en: 'Missing required data or invalid role', ar: 'بيانات ناقصة أو دور غير صحيح' } });
+        continue;
+      }
+      if (seen.has(email)) {
+        staged.push({ ...base, verdict: 'error', errorReason: { en: 'Duplicated inside this same file', ar: 'مكرر داخل نفس الملف' } });
+        continue;
+      }
+      seen.add(email);
+      const existing = await adminRepository.findUserByEmail(email);
+      staged.push({ ...base, verdict: existing ? 'existing' : 'new' });
+    }
+    const batch = await adminRepository.createBatch({
+      institutionId: actor.institutionId,
+      fileName: String(fileName).trim(),
+      createdBy: actor.id,
+      createdByName: `${actor.firstName} ${actor.lastName}`,
+      rows: staged,
+    });
+    return { id: batch._id.toString(), fileName: batch.fileName, rows: batch.rows, counts: batchCounts(batch.rows), status: batch.status };
+  }
+
+  async function systemActor(institutionId) {
+    const superAdmin = await adminRepository.findSuperAdminOfInstitution(institutionId);
+    if (!superAdmin) throw new NotFoundError('The institution has no super admin');
+    return {
+      id: superAdmin._id.toString(),
+      email: superAdmin.email,
+      firstName: superAdmin.firstName,
+      lastName: superAdmin.lastName,
+      role: superAdmin.role,
+      accountType: superAdmin.accountType,
+      institutionId: superAdmin.institutionId.toString(),
+      isSuperAdmin: true,
+      isActive: superAdmin.isActive,
+    };
+  }
+
+  async function resolveCourseIds(institutionId, courseCodes) {
+    if (!courseCodes.length) return [];
+    const courses = await adminRepository.findCoursesByCodes(institutionId, courseCodes);
+    const codes = new Set(courseCodes);
+    return courses.filter((c) => codes.has(c.code)).map((c) => c._id);
+  }
+
+  async function enrollUserInCourseIds(actor, userId, courseIds) {
+    let enrolled = 0;
+    for (const courseId of courseIds) {
+      try {
+        await coursesService.enroll(actor, courseId.toString(), userId);
+        enrolled += 1;
+      } catch {
+        continue;
+      }
+    }
+    return enrolled;
+  }
+
+  async function confirmImport(actor, batchId) {
+    const batch = await adminRepository.findBatch(actor.institutionId, batchId);
+    if (!batch) throw new NotFoundError('Import batch not found');
+    if (batch.status !== 'staged') throw new ValidationError('This batch has already been executed or discarded');
+    const actorForEnrollment = await systemActor(actor.institutionId);
+    let newCount = 0;
+    let existingCount = 0;
+    let errorCount = 0;
+    for (const row of batch.rows) {
+      if (row.verdict === 'error') {
+        errorCount += 1;
+        continue;
+      }
+      const courseIds = await resolveCourseIds(actor.institutionId, row.courseCodes);
+      if (row.verdict === 'existing') {
+        const user = await adminRepository.findUserByEmail(row.email);
+        if (!user) {
+          await adminRepository.insertInvitation({
+            institutionId: actor.institutionId,
+            batchId: batch._id,
+            email: row.email,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            role: row.role,
+            courseIds,
+            status: 'pending',
+          });
+          newCount += 1;
+          continue;
+        }
+        await enrollUserInCourseIds(actorForEnrollment, user._id.toString(), courseIds);
+        await adminRepository.insertInvitation({
+          institutionId: actor.institutionId,
+          batchId: batch._id,
+          email: row.email,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          role: row.role,
+          courseIds,
+          status: 'accepted',
+          enrolledUserId: user._id,
+          acceptedAt: new Date(),
+        });
+        existingCount += 1;
+        continue;
+      }
+      await adminRepository.insertInvitation({
+        institutionId: actor.institutionId,
+        batchId: batch._id,
+        email: row.email,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        role: row.role,
+        courseIds,
+        status: 'pending',
+      });
+      newCount += 1;
+    }
+    await adminRepository.markBatchConfirmed(batch._id);
+    await logEvent(actor, ADMIN_AUDIT_TYPES.BULK_IMPORTED, 'bulk.import', {
+      en: `Bulk import ${batch.fileName} — ${newCount} invitations sent, ${existingCount} existing accounts enrolled directly, ${errorCount} rows rejected`,
+      ar: `إدخال جماعي ${batch.fileName} — أُرسلت ${newCount} دعوة، وانضم ${existingCount} حساب قائم مباشرة، ورُفض ${errorCount} صف`,
+    });
+    return { id: batchId, newCount, existingCount, errorCount };
+  }
+
+  async function discardImport(actor, batchId) {
+    const batch = await adminRepository.findBatch(actor.institutionId, batchId);
+    if (!batch) throw new NotFoundError('Import batch not found');
+    if (batch.status !== 'staged') throw new ValidationError('Only a staged, unconfirmed batch can be discarded');
+    await adminRepository.deleteBatch(batch._id);
+    return { id: batchId, discarded: true };
+  }
+
+  async function listImports(actor) {
+    const batches = await adminRepository.listBatches(actor.institutionId);
+    return batches.map((b) => ({
+      id: b._id.toString(),
+      fileName: b.fileName,
+      createdByName: b.createdByName,
+      createdAt: b.createdAt,
+      confirmedAt: b.confirmedAt ?? null,
+      status: b.status,
+      rows: b.rows,
+      counts: batchCounts(b.rows),
+    }));
+  }
+
+  async function listInvitations(actor, status) {
+    const invitations = await adminRepository.listInvitations(actor.institutionId, status);
+    const now = Date.now();
+    return invitations.map((inv) => ({
+      id: inv._id.toString(),
+      email: inv.email,
+      firstName: inv.firstName,
+      lastName: inv.lastName,
+      role: inv.role,
+      status: inv.status,
+      sentAt: inv.createdAt,
+      acceptedAt: inv.acceptedAt ?? null,
+      waitingDays: inv.status === 'pending' ? Math.floor((now - new Date(inv.createdAt).getTime()) / 864e5) : 0,
+    }));
+  }
+
+  async function acceptPendingInvitationsForUser(user) {
+    const email = String(user.email ?? '').toLowerCase();
+    if (!email) return 0;
+    const pending = await adminRepository.findPendingInvitationsByEmail(email);
+    let accepted = 0;
+    for (const invitation of pending) {
+      try {
+        const actor = await systemActor(invitation.institutionId);
+        await enrollUserInCourseIds(actor, (user._id ?? user.id).toString(), invitation.courseIds ?? []);
+        await adminRepository.markInvitationAccepted(invitation._id, user._id ?? user.id);
+        accepted += 1;
+      } catch {
+        continue;
+      }
+    }
+    return accepted;
+  }
+
   return {
     permissionKeysOf,
     officerMe,
@@ -177,5 +377,11 @@ export function createAdminService({ adminRepository }) {
     createOfficer,
     setOfficerScopes,
     applyOfficerTemplate,
+    stageImport,
+    confirmImport,
+    discardImport,
+    listImports,
+    listInvitations,
+    acceptPendingInvitationsForUser,
   };
 }

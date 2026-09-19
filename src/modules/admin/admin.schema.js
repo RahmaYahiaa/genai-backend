@@ -36,6 +36,27 @@ const scopesSchema = z.object({
   keys: z.array(z.enum(OFFICER_PERMISSION_KEY_VALUES)),
 });
 
+const importRowSchema = z.object({
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  email: z.string().max(254).optional(),
+  role: z.string().max(30).optional(),
+  courseCodes: z.array(z.string().max(30)).max(10).optional(),
+});
+
+const stageImportSchema = z.object({
+  fileName: z.string().trim().min(1, 'fileName is required').max(200),
+  rows: z.array(importRowSchema).min(1, 'At least one row is required').max(500),
+});
+
+const batchIdParamSchema = z.object({
+  batchId: z.string().regex(OBJECT_ID_PATTERN, 'A valid batch id is required'),
+});
+
+const invitationsQuerySchema = z.object({
+  status: z.enum(['pending', 'accepted', 'revoked']).optional(),
+});
+
 export const adminSchemas = {
   userIdParam: userIdParamSchema,
   setActive: setActiveSchema,
@@ -44,4 +65,7 @@ export const adminSchemas = {
   createOfficer: createOfficerSchema,
   template: templateSchema,
   scopes: scopesSchema,
+  stageImport: stageImportSchema,
+  batchIdParam: batchIdParamSchema,
+  invitationsQuery: invitationsQuerySchema,
 };

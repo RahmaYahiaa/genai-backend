@@ -61,8 +61,24 @@ export function createAuthService({ repository, institutionService }) {
     // Belt-and-braces duplicate check (the unique index remains the
     // race-safe backstop for truly concurrent requests).
     const existingUser = await repository.findByEmail(email);
-    if (existingUser) {
+    if (existingUser && existingUser.isActive !== false) {
       throw new ConflictError('An account with this email already exists');
+    }
+    if (existingUser) {
+      if (existingUser.lastLoginAt) {
+        throw new ForbiddenError('This account has been deactivated');
+      }
+      const passwordHash = await hashPassword(password);
+      await repository.updateById(existingUser._id, {
+        passwordHash,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        isActive: true,
+      });
+      const activated = await repository.findByIdWithTokenVersion(existingUser._id);
+      const { adminService } = await import('../admin/index.js');
+      await adminService.acceptPendingInvitationsForUser(activated).catch(() => undefined);
+      return { user: toPublicUser(activated), tokens: issueTokenPair(activated) };
     }
 
     let createdInstitution = null;
@@ -138,6 +154,9 @@ export function createAuthService({ repository, institutionService }) {
         accountType,
         languagePreference,
       });
+
+      const { adminService } = await import('../admin/index.js');
+      await adminService.acceptPendingInvitationsForUser(user).catch(() => undefined);
 
       return { user: toPublicUser(user), tokens: issueTokenPair(user) };
     } catch (error) {

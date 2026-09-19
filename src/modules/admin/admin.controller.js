@@ -80,6 +80,51 @@ export function createAdminController({ adminService }) {
     }
   }
 
+  async function stageImport(req, res, next) {
+    try {
+      const data = await adminService.stageImport(req.user, req.body);
+      res.status(201).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function listImports(req, res, next) {
+    try {
+      const data = await adminService.listImports(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function confirmImport(req, res, next) {
+    try {
+      const data = await adminService.confirmImport(req.user, req.params.batchId);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function discardImport(req, res, next) {
+    try {
+      const data = await adminService.discardImport(req.user, req.params.batchId);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function listInvitations(req, res, next) {
+    try {
+      const data = await adminService.listInvitations(req.user, req.query.status);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   return {
     getMe,
     listUsers,
@@ -90,5 +135,10 @@ export function createAdminController({ adminService }) {
     createOfficer,
     applyOfficerTemplate,
     setOfficerScopes,
+    stageImport,
+    listImports,
+    confirmImport,
+    discardImport,
+    listInvitations,
   };
 }
