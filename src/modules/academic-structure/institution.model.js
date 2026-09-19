@@ -21,9 +21,14 @@ const institutionSchema = new mongoose.Schema(
     // (e.g. "zu.edu.eg"). Empty list = no domain verification enforced.
     emailDomains: { type: [String], default: [] },
     isActive: { type: Boolean, default: true },
+    // FR-ADM-08 — platform contract end date shown on the admin health screen.
+    contractEndsAt: { type: Date, default: null },
     settings: {
       // When false, users cannot self-register into this institution.
       allowSelfRegistration: { type: Boolean, default: true },
+      // FR-ADM-08 — institution-wide gate on instructors creating course
+      // shells themselves; off = courses arrive only from admin/sync.
+      allowDoctorCourseCreation: { type: Boolean, default: true },
       // Supplementary (non-official) source types institutions permit in RAG retrieval.
       allowedSupplementalSourceTypes: {
         type: [String],

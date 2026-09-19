@@ -31,6 +31,13 @@ const userSchema = new mongoose.Schema(
       default: LANGUAGES.ENGLISH,
     },
     isActive: { type: Boolean, default: true },
+    // FR-ADM-01 — the tenant's super admin; bypasses officer-scope key checks
+    // and alone manages officer permission rows. Officers keep this false and
+    // carry an OfficerPermissions row instead.
+    isSuperAdmin: { type: Boolean, default: false },
+    // FR-ADM-04 — optional; academic number for students, employee number for
+    // staff. Deactivated-flag manual verification never blocks login.
+    academicNumber: { type: String, trim: true, maxlength: 40, default: null },
     // Incremented on logout to revoke every previously issued token instantly.
     tokenVersion: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date, default: null },
@@ -70,6 +77,8 @@ export function toPublicUser(user) {
     institutionId: user.institutionId ? user.institutionId.toString() : null,
     languagePreference: user.languagePreference,
     isActive: user.isActive,
+    isSuperAdmin: user.isSuperAdmin === true,
+    academicNumber: user.academicNumber ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
