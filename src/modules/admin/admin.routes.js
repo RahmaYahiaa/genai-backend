@@ -26,5 +26,21 @@ export function createAdminRouter({ controller, middlewares, guards, validators 
   router.get('/requests/:requestId/proof', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestIdParam, controller.getRequestProof);
   router.post('/requests/:requestId/decision', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestIdParam, validators.decideRequest, controller.decideRequest);
 
+  router.get('/settings', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.SETTINGS_MANAGE), controller.getSettings);
+  router.patch('/settings', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.SETTINGS_MANAGE), validators.settingsPatch, controller.updateSettings);
+
+  router.get('/link-candidates', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.ACCOUNTS_LINK), controller.listLinkCandidates);
+  router.get('/link-invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.ACCOUNTS_LINK), validators.linkInvitationsQuery, controller.listLinkInvitations);
+  router.post('/link-invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.ACCOUNTS_LINK), validators.sendLinkInvitation, controller.sendLinkInvitation);
+
+  return router;
+}
+
+export function createLinkConsentRouter({ controller, guards, validators }) {
+  const router = Router();
+
+  router.get('/', guards.authenticate, controller.myLinkInvitations);
+  router.post('/:invitationId/respond', guards.authenticate, validators.invitationIdParam, validators.linkRespond, controller.respondLinkInvitation);
+
   return router;
 }

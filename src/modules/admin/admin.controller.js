@@ -153,6 +153,73 @@ export function createAdminController({ adminService }) {
     }
   }
 
+  async function getSettings(req, res, next) {
+    try {
+      const data = await adminService.getSettings(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function updateSettings(req, res, next) {
+    try {
+      const data = await adminService.updateSettings(req.user, req.validated.body);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function listLinkCandidates(req, res, next) {
+    try {
+      const data = await adminService.listLinkCandidates(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function listLinkInvitations(req, res, next) {
+    try {
+      const data = await adminService.listLinkInvitations(req.user, req.validated.query.status);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function sendLinkInvitation(req, res, next) {
+    try {
+      const data = await adminService.sendLinkInvitation(req.user, req.validated.body.userId);
+      res.status(201).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function myLinkInvitations(req, res, next) {
+    try {
+      const data = await adminService.myLinkInvitations(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function respondLinkInvitation(req, res, next) {
+    try {
+      const data = await adminService.respondToLinkInvitation(
+        req.user,
+        req.validated.params.invitationId,
+        req.validated.body.decision,
+      );
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   return {
     getMe,
     listUsers,
@@ -171,5 +238,12 @@ export function createAdminController({ adminService }) {
     listRequests,
     getRequestProof,
     decideRequest,
+    getSettings,
+    updateSettings,
+    listLinkCandidates,
+    listLinkInvitations,
+    sendLinkInvitation,
+    myLinkInvitations,
+    respondLinkInvitation,
   };
 }

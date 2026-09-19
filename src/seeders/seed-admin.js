@@ -5,8 +5,9 @@
 //   npm run seed:admin
 // Safe to re-run any number of times.
 // ─────────────────────────────────────────────────────────────────────────────
+import bcrypt from 'bcryptjs';
 import { connectDatabase, disconnectDatabase } from '../config/database.js';
-import { LANGUAGES, ROLES } from '../config/constants.js';
+import { LANGUAGES, ROLES, ACCOUNT_TYPES } from '../config/constants.js';
 import { authService } from '../modules/auth/index.js';
 import User from '../modules/auth/user.model.js';
 import Institution from '../modules/academic-structure/institution.model.js';
@@ -112,6 +113,29 @@ async function main() {
     await ensureUser({ ...student, role: ROLES.STUDENT, institutionId });
   }
 
+  const INDIVIDUALS = [
+    { firstName: 'Omar', lastName: 'Tawfik', email: 'omar.tawfik@menoufia.edu.eg' },
+    { firstName: 'Menna', lastName: 'Khaled', email: 'menna.khaled@menoufia.edu.eg' },
+  ];
+  for (const person of INDIVIDUALS) {
+    const existing = await User.findOne({ email: person.email });
+    if (existing) {
+      log(`exists: ${person.email} (individual)`);
+      continue;
+    }
+    await User.create({
+      email: person.email,
+      passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
+      firstName: person.firstName,
+      lastName: person.lastName,
+      role: ROLES.STUDENT,
+      accountType: ACCOUNT_TYPES.INDIVIDUAL,
+      institutionId: null,
+      languagePreference: LANGUAGES.ENGLISH,
+    });
+    log(`created: ${person.email} (individual — link candidate)`);
+  }
+
   await Institution.updateOne(
     { _id: institutionId },
     { $set: { contractEndsAt: CONTRACT_ENDS_AT, 'settings.allowDoctorCourseCreation': true } },
@@ -123,6 +147,8 @@ async function main() {
   log('   officer       heba.salah@menoufia.edu.eg   (admissions template)');
   log('   officer       tamer.elgendy@menoufia.edu.eg (custom: users.view, analytics.view, audit.view)');
   log('   student       sarah.rashidi@menoufia.edu.eg');
+  log('   individual    omar.tawfik@menoufia.edu.eg  (link candidate)');
+  log('   individual    menna.khaled@menoufia.edu.eg (link candidate)');
   await disconnectDatabase();
 }
 

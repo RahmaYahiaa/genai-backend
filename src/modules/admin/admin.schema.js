@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { ROLES } from '../../config/constants.js';
+import { ROLES, MATERIAL_SOURCE_TYPES } from '../../config/constants.js';
 import { OFFICER_PERMISSION_KEY_VALUES, OFFICER_TEMPLATES } from './admin.constants.js';
+
+const MATERIAL_SOURCE_TYPE_VALUES = Object.values(MATERIAL_SOURCE_TYPES);
 
 const OBJECT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
@@ -72,6 +74,33 @@ const decideRequestSchema = z.object({
   note: z.string().trim().min(3, 'note must be at least 3 characters').max(500).optional(),
 });
 
+const settingsPatchSchema = z.object({
+  emailDomains: z
+    .array(z.string().trim().max(100).regex(/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/, 'A valid domain is required'))
+    .min(1, 'Provide at least one domain')
+    .max(10)
+    .optional(),
+  allowSelfRegistration: z.boolean().optional(),
+  allowDoctorCourseCreation: z.boolean().optional(),
+  allowedSupplementalSourceTypes: z.array(z.enum(MATERIAL_SOURCE_TYPE_VALUES)).max(10).optional(),
+});
+
+const sendLinkInvitationSchema = z.object({
+  userId: z.string().regex(OBJECT_ID_PATTERN, 'A valid user id is required'),
+});
+
+const linkInvitationsQuerySchema = z.object({
+  status: z.enum(['awaiting-consent', 'linked', 'declined']).optional(),
+});
+
+const invitationIdParamSchema = z.object({
+  invitationId: z.string().regex(OBJECT_ID_PATTERN, 'A valid invitation id is required'),
+});
+
+const linkRespondSchema = z.object({
+  decision: z.enum(['accept', 'decline']),
+});
+
 export const adminSchemas = {
   userIdParam: userIdParamSchema,
   setActive: setActiveSchema,
@@ -86,4 +115,9 @@ export const adminSchemas = {
   requestsQuery: requestsQuerySchema,
   requestIdParam: requestIdParamSchema,
   decideRequest: decideRequestSchema,
+  settingsPatch: settingsPatchSchema,
+  sendLinkInvitation: sendLinkInvitationSchema,
+  linkInvitationsQuery: linkInvitationsQuerySchema,
+  invitationIdParam: invitationIdParamSchema,
+  linkRespond: linkRespondSchema,
 };

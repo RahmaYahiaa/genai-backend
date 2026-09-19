@@ -1,9 +1,11 @@
 import User from '../auth/user.model.js';
-import { ROLES } from '../../config/constants.js';
+import { ROLES, ACCOUNT_TYPES } from '../../config/constants.js';
 import OfficerPermissions from './officer-permissions.model.js';
 import AdminAuditEvent from './admin-audit-event.model.js';
 import Invitation from './invitation.model.js';
 import ImportBatch from './import-batch.model.js';
+import AccountLinkInvitation from './account-link-invitation.model.js';
+import Institution from '../academic-structure/institution.model.js';
 import Course from '../courses/course.model.js';
 import EnrollmentRequest, { toPublicEnrollmentRequest } from '../courses/enrollment-request.model.js';
 
@@ -20,6 +22,85 @@ export async function findRequestProof(requestId, institutionId) {
   return EnrollmentRequest.findOne({ _id: requestId, institutionId })
     .select('+proof.data')
     .lean();
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export async function findInstitutionById(institutionId) {
+  return Institution.findById(institutionId).lean();
+}
+
+export async function updateInstitutionSettings(institutionId, set) {
+  return Institution.findByIdAndUpdate(institutionId, { $set: set }, { new: true }).lean();
+}
+
+export async function listLinkCandidateUsers(emailDomains) {
+  if (!Array.isArray(emailDomains) || emailDomains.length === 0) return [];
+  const matchers = emailDomains.map((domain) => ({
+    email: new RegExp(`@${escapeRegExp(String(domain).toLowerCase())}$`, 'i'),
+  }));
+  return User.find({ accountType: ACCOUNT_TYPES.INDIVIDUAL, $or: matchers })
+    .select('firstName lastName email accountType createdAt')
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .lean();
+}
+
+export async function findUserById(userId) {
+  return User.findById(userId).lean();
+}
+
+export async function findLinkInvitation(institutionId, userId) {
+  return AccountLinkInvitation.findOne({ institutionId, userId }).lean();
+}
+
+export async function findLinkInvitationById(invitationId) {
+  return AccountLinkInvitation.findById(invitationId).populate('institutionId', 'name').lean();
+}
+
+export async function listLinkInvitations(institutionId, status) {
+  const filter = { institutionId, ...(status ? { status } : {}) };
+  return AccountLinkInvitation.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(300)
+    .lean();
+}
+
+export async function createLinkInvitation(data) {
+  return AccountLinkInvitation.create(data);
+}
+
+export async function resetLinkInvitation(invitationId, { invitedById, invitedByName }) {
+  return AccountLinkInvitation.findByIdAndUpdate(
+    invitationId,
+    { $set: { status: 'awaiting-consent', invitedById, invitedByName, respondedAt: null } },
+    { new: true },
+  ).lean();
+}
+
+export async function markInvitationResponded(invitationId, status) {
+  return AccountLinkInvitation.findByIdAndUpdate(
+    invitationId,
+    { $set: { status, respondedAt: new Date() } },
+    { new: true },
+  ).lean();
+}
+
+export async function findMyPendingLinkInvitations(userId) {
+  return AccountLinkInvitation.find({ userId, status: 'awaiting-consent' })
+    .populate('institutionId', 'name')
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
+export async function linkUserToInstitution(userId, institutionId) {
+  return User.findByIdAndUpdate(
+    userId,
+    { $set: { institutionId, accountType: ACCOUNT_TYPES.INSTITUTIONAL } },
+    { new: true },
+  ).lean();
 }
 
 export async function findByUserId(userId) {

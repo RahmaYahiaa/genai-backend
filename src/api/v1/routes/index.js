@@ -15,7 +15,7 @@ import { reviewRouter } from '../../../modules/review/index.js';
 import { remedialRouter } from '../../../modules/remedial/index.js';
 import { auditRouter } from '../../../modules/audit/index.js';
 import { analyticsRouter } from '../../../modules/analytics/index.js';
-import { adminRouter } from '../../../modules/admin/index.js';
+import { adminRouter, linkConsentRouter } from '../../../modules/admin/index.js';
 
 const router = Router();
 
@@ -70,6 +70,7 @@ router.use(analyticsRouter);
 // Institution admin area: /admin/* (delegated permission scopes; super admin
 // bypasses keys, officers act strictly inside theirs).
 router.use('/admin', adminRouter);
+router.use('/link-invitations', linkConsentRouter);
 
 // Feature module routers (diagnostics, tutor, ...) are mounted here
 // by their module composition roots as each module is implemented.

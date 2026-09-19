@@ -1,10 +1,26 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/index.js';
-import { ROLES } from '../../config/constants.js';
+import { ROLES, ACCOUNT_TYPES, MATERIAL_SOURCE_TYPES } from '../../config/constants.js';
 import { ADMIN_AUDIT_TYPES, OFFICER_PERMISSION_KEY_VALUES, OFFICER_TEMPLATES } from './admin.constants.js';
+import { toPublicUser } from '../auth/user.model.js';
+import { issueTokenPair } from '../auth/jwt.js';
 
 const ROLE_LABEL_AR = { student: 'طالب', instructor: 'دكتور', institution_admin: 'مسؤول' };
+
+const SETTING_LABEL_EN = {
+  emailDomains: 'email domains',
+  allowSelfRegistration: 'self-registration',
+  allowDoctorCourseCreation: 'doctor course creation',
+  allowedSupplementalSourceTypes: 'supplemental source policy',
+};
+
+const SETTING_LABEL_AR = {
+  emailDomains: 'نطاقات البريد الإلكتروني',
+  allowSelfRegistration: 'التسجيل الذاتي',
+  allowDoctorCourseCreation: 'إنشاء الدكاترة للمقررات',
+  allowedSupplementalSourceTypes: 'سياسة المصادر المساندة',
+};
 
 export function createAdminService({ adminRepository, coursesService, enrollmentRequestRepository }) {
   async function permissionKeysOf(user) {
@@ -415,6 +431,188 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     return result;
   }
 
+  function toSettingsView(institution) {
+    return {
+      id: institution._id.toString(),
+      name: institution.name,
+      country: institution.country ?? null,
+      emailDomains: institution.emailDomains ?? [],
+      contractEndsAt: institution.contractEndsAt ?? null,
+      settings: {
+        allowSelfRegistration: institution.settings?.allowSelfRegistration ?? true,
+        allowDoctorCourseCreation: institution.settings?.allowDoctorCourseCreation ?? true,
+        allowedSupplementalSourceTypes: institution.settings?.allowedSupplementalSourceTypes ?? [],
+      },
+      materialSourceTypes: Object.values(MATERIAL_SOURCE_TYPES),
+    };
+  }
+
+  async function getSettings(actor) {
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    if (!institution) throw new NotFoundError('Institution not found');
+    return toSettingsView(institution);
+  }
+
+  async function updateSettings(actor, patch) {
+    const set = {};
+    const changed = [];
+    if (patch.emailDomains !== undefined) {
+      set.emailDomains = patch.emailDomains.map((domain) => domain.toLowerCase());
+      changed.push('emailDomains');
+    }
+    if (patch.allowSelfRegistration !== undefined) {
+      set['settings.allowSelfRegistration'] = patch.allowSelfRegistration;
+      changed.push('allowSelfRegistration');
+    }
+    if (patch.allowDoctorCourseCreation !== undefined) {
+      set['settings.allowDoctorCourseCreation'] = patch.allowDoctorCourseCreation;
+      changed.push('allowDoctorCourseCreation');
+    }
+    if (patch.allowedSupplementalSourceTypes !== undefined) {
+      set['settings.allowedSupplementalSourceTypes'] = patch.allowedSupplementalSourceTypes;
+      changed.push('allowedSupplementalSourceTypes');
+    }
+    if (changed.length === 0) {
+      throw new ValidationError('Nothing to update');
+    }
+    const institution = await adminRepository.updateInstitutionSettings(actor.institutionId, set);
+    if (!institution) throw new NotFoundError('Institution not found');
+    await logEvent(
+      actor,
+      ADMIN_AUDIT_TYPES.SETTINGS_CHANGED,
+      'settings.manage',
+      {
+        en: `Updated institution settings: ${changed.map((key) => SETTING_LABEL_EN[key]).join(', ')}`,
+        ar: `حدّث إعدادات المؤسسة: ${changed.map((key) => SETTING_LABEL_AR[key]).join('، ')}`,
+      },
+      { changed },
+    );
+    return toSettingsView(institution);
+  }
+
+  function toLinkInvitationView(invitation) {
+    return {
+      id: invitation._id.toString(),
+      userId: invitation.userId?._id ? invitation.userId._id.toString() : invitation.userId.toString(),
+      email: invitation.email,
+      status: invitation.status,
+      invitedAt: invitation.createdAt,
+      invitedByName: invitation.invitedByName || null,
+      respondedAt: invitation.respondedAt ?? null,
+    };
+  }
+
+  async function listLinkCandidates(actor) {
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    const users = await adminRepository.listLinkCandidateUsers(institution?.emailDomains ?? []);
+    const invitations = await adminRepository.listLinkInvitations(actor.institutionId, null);
+    const byUser = new Map(
+      invitations.map((invitation) => [
+        invitation.userId?._id ? invitation.userId._id.toString() : invitation.userId.toString(),
+        invitation,
+      ]),
+    );
+    return users.map((user) => ({
+      id: user._id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      accountType: user.accountType,
+      createdAt: user.createdAt,
+      invitation: byUser.get(user._id.toString()) ? toLinkInvitationView(byUser.get(user._id.toString())) : null,
+    }));
+  }
+
+  async function listLinkInvitations(actor, status) {
+    const invitations = await adminRepository.listLinkInvitations(actor.institutionId, status);
+    return invitations.map(toLinkInvitationView);
+  }
+
+  async function sendLinkInvitation(actor, userId) {
+    const target = await adminRepository.findUserById(userId);
+    if (!target) throw new NotFoundError('User not found');
+    if (target.accountType !== ACCOUNT_TYPES.INDIVIDUAL) {
+      throw new ConflictError('This account is already part of an institution');
+    }
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    const domains = institution?.emailDomains ?? [];
+    if (domains.length > 0) {
+      const domain = String(target.email).split('@').pop().toLowerCase();
+      if (!domains.map((d) => d.toLowerCase()).includes(domain)) {
+        throw new ValidationError('This account email is outside the institution domains (بريد هذا الحساب خارج نطاقات المؤسسة)');
+      }
+    }
+    const existing = await adminRepository.findLinkInvitation(actor.institutionId, target._id);
+    if (existing?.status === 'awaiting-consent') {
+      throw new ConflictError('An invitation for this account is already awaiting consent');
+    }
+    if (existing?.status === 'linked') {
+      throw new ConflictError('This account is already linked to your institution');
+    }
+    const invitedBy = { invitedById: actor.id, invitedByName: `${actor.firstName} ${actor.lastName}` };
+    if (existing) {
+      const reset = await adminRepository.resetLinkInvitation(existing._id, invitedBy);
+      return toLinkInvitationView(reset);
+    }
+    const invitation = await adminRepository.createLinkInvitation({
+      institutionId: actor.institutionId,
+      userId: target._id,
+      email: target.email,
+      ...invitedBy,
+    });
+    return toLinkInvitationView(invitation);
+  }
+
+  async function myLinkInvitations(user) {
+    const invitations = await adminRepository.findMyPendingLinkInvitations(user.id);
+    return invitations.map((invitation) => ({
+      id: invitation._id.toString(),
+      institutionId: invitation.institutionId?._id
+        ? invitation.institutionId._id.toString()
+        : invitation.institutionId?.toString() ?? null,
+      institutionName: invitation.institutionId?.name ?? '',
+      invitedAt: invitation.createdAt,
+    }));
+  }
+
+  async function respondToLinkInvitation(user, invitationId, decision) {
+    const invitation = await adminRepository.findLinkInvitationById(invitationId);
+    if (!invitation || String(invitation.userId) !== String(user.id)) {
+      throw new NotFoundError('Link invitation not found');
+    }
+    if (invitation.status !== 'awaiting-consent') {
+      throw new ConflictError('This invitation was already answered');
+    }
+    const institutionId = invitation.institutionId?._id
+      ? invitation.institutionId._id.toString()
+      : invitation.institutionId.toString();
+    const institutionName = invitation.institutionId?.name ?? '';
+    if (decision === 'decline') {
+      await adminRepository.markInvitationResponded(invitation._id, 'declined');
+      return { status: 'declined', institutionId, institutionName };
+    }
+    await adminRepository.linkUserToInstitution(user.id, institutionId);
+    await adminRepository.markInvitationResponded(invitation._id, 'linked');
+    await logEvent(
+      { id: user.id, firstName: user.firstName, lastName: user.lastName, institutionId },
+      ADMIN_AUDIT_TYPES.ACCOUNT_LINKED,
+      'accounts.link',
+      {
+        en: `${user.firstName} ${user.lastName} linked their individual account to ${institutionName} (personal courses kept)`,
+        ar: `ربط ${user.firstName} ${user.lastName} حسابه الفردي بـ${institutionName} مع الاحتفاظ بالمقررات الشخصية`,
+      },
+      { userId: user.id },
+    );
+    const fresh = await adminRepository.findUserById(user.id);
+    return {
+      status: 'linked',
+      institutionId,
+      institutionName,
+      user: toPublicUser(fresh),
+      tokens: issueTokenPair(fresh),
+    };
+  }
+
   return {
     permissionKeysOf,
     officerMe,
@@ -435,5 +633,12 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     listEnrollmentRequests,
     getRequestProof,
     decideEnrollmentRequest,
+    getSettings,
+    updateSettings,
+    listLinkCandidates,
+    listLinkInvitations,
+    sendLinkInvitation,
+    myLinkInvitations,
+    respondToLinkInvitation,
   };
 }
