@@ -4,7 +4,7 @@ import Invitation from './invitation.model.js';
 import ImportBatch from './import-batch.model.js';
 import * as adminRepository from './admin.repository.js';
 import { authenticate } from '../auth/index.js';
-import { coursesService } from '../courses/index.js';
+import { coursesService, enrollmentRequestRepository } from '../courses/index.js';
 import { createAdminService } from './admin.service.js';
 import { createAdminMiddlewares } from './admin.middlewares.js';
 import { createAdminController } from './admin.controller.js';
@@ -20,7 +20,7 @@ export {
 };
 export { adminRepository };
 
-export const adminService = createAdminService({ adminRepository, coursesService });
+export const adminService = createAdminService({ adminRepository, coursesService, enrollmentRequestRepository });
 const middlewares = createAdminMiddlewares({ adminService });
 const controller = createAdminController({ adminService });
 
@@ -39,5 +39,8 @@ export const adminRouter = createAdminRouter({
     stageImport: validateSchemas({ body: adminSchemas.stageImport }),
     batchIdParam: validateSchemas({ params: adminSchemas.batchIdParam }),
     invitationsQuery: validateSchemas({ query: adminSchemas.invitationsQuery }),
+    requestsQuery: validateSchemas({ query: adminSchemas.requestsQuery }),
+    requestIdParam: validateSchemas({ params: adminSchemas.requestIdParam }),
+    decideRequest: validateSchemas({ body: adminSchemas.decideRequest }),
   },
 });

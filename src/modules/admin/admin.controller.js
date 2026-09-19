@@ -125,6 +125,34 @@ export function createAdminController({ adminService }) {
     }
   }
 
+  async function listRequests(req, res, next) {
+    try {
+      const { status, page, limit } = req.validated.query;
+      const data = await adminService.listEnrollmentRequests(req.user, { status, page, limit });
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function getRequestProof(req, res, next) {
+    try {
+      const data = await adminService.getRequestProof(req.user, req.validated.params.requestId);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function decideRequest(req, res, next) {
+    try {
+      const data = await adminService.decideEnrollmentRequest(req.user, req.validated.params.requestId, req.validated.body);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   return {
     getMe,
     listUsers,
@@ -140,5 +168,8 @@ export function createAdminController({ adminService }) {
     confirmImport,
     discardImport,
     listInvitations,
+    listRequests,
+    getRequestProof,
+    decideRequest,
   };
 }

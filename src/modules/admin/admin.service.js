@@ -6,7 +6,7 @@ import { ADMIN_AUDIT_TYPES, OFFICER_PERMISSION_KEY_VALUES, OFFICER_TEMPLATES } f
 
 const ROLE_LABEL_AR = { student: 'طالب', instructor: 'دكتور', institution_admin: 'مسؤول' };
 
-export function createAdminService({ adminRepository, coursesService }) {
+export function createAdminService({ adminRepository, coursesService, enrollmentRequestRepository }) {
   async function permissionKeysOf(user) {
     if (user.role !== ROLES.INSTITUTION_ADMIN) return [];
     if (user.isSuperAdmin) return OFFICER_PERMISSION_KEY_VALUES;
@@ -366,6 +366,55 @@ export function createAdminService({ adminRepository, coursesService }) {
     return accepted;
   }
 
+  async function listEnrollmentRequests(actor, { status, page, limit }) {
+    const skip = (page - 1) * limit;
+    const { items, total } = await enrollmentRequestRepository.listByInstitution(actor.institutionId, { status, skip, limit });
+    return { items: items.map(adminRepository.toPublicEnrollmentRequest), total, page, limit };
+  }
+
+  async function getRequestProof(actor, requestId) {
+    const request = await adminRepository.findRequestProof(requestId, actor.institutionId);
+    if (!request) throw new NotFoundError('Enrollment request not found');
+    if (!request.proof?.data) throw new NotFoundError('This request has no proof attachment');
+    return {
+      fileName: request.proof.fileName,
+      mimeType: request.proof.mimeType,
+      size: request.proof.size ?? null,
+      data: request.proof.data,
+    };
+  }
+
+  async function decideEnrollmentRequest(actor, requestId, { decision, note }) {
+    if (decision === 'REJECTED' && !note) {
+      throw new ValidationError('A written reason is required when rejecting a request (سبب الرفض مطلوب عند رفض الطلب)');
+    }
+    const request = await adminRepository.findRequestInInstitution(requestId, actor.institutionId);
+    if (!request) throw new NotFoundError('Enrollment request not found');
+    const result = await coursesService.decideEnrollmentRequest(actor, requestId, { decision, note });
+    const studentName = request.studentId?.firstName
+      ? `${request.studentId.firstName} ${request.studentId.lastName}`
+      : 'a student';
+    const courseLabel = request.courseId?.code
+      ? `${request.courseId.code} ${request.courseId.title}`
+      : request.courseId?.title ?? 'a course';
+    const approved = decision === 'APPROVED';
+    await logEvent(
+      actor,
+      ADMIN_AUDIT_TYPES.REQUEST_DECIDED,
+      'requests.review',
+      {
+        en: approved
+          ? `Approved ${studentName}'s request to join ${courseLabel}${result.enrollmentCreated ? '' : ' (student was already enrolled)'}`
+          : `Rejected ${studentName}'s request to join ${courseLabel} — reason: ${note}`,
+        ar: approved
+          ? `قَبِل طلب ${studentName} للانضمام إلى ${courseLabel}${result.enrollmentCreated ? '' : ' (الطالب مسجَّل بالفعل)'}`
+          : `رفض طلب ${studentName} للانضمام إلى ${courseLabel} — السبب: ${note}`,
+      },
+      { requestId, decision },
+    );
+    return result;
+  }
+
   return {
     permissionKeysOf,
     officerMe,
@@ -383,5 +432,8 @@ export function createAdminService({ adminRepository, coursesService }) {
     listImports,
     listInvitations,
     acceptPendingInvitationsForUser,
+    listEnrollmentRequests,
+    getRequestProof,
+    decideEnrollmentRequest,
   };
 }

@@ -5,6 +5,22 @@ import AdminAuditEvent from './admin-audit-event.model.js';
 import Invitation from './invitation.model.js';
 import ImportBatch from './import-batch.model.js';
 import Course from '../courses/course.model.js';
+import EnrollmentRequest, { toPublicEnrollmentRequest } from '../courses/enrollment-request.model.js';
+
+export { toPublicEnrollmentRequest };
+
+export async function findRequestInInstitution(requestId, institutionId) {
+  return EnrollmentRequest.findOne({ _id: requestId, institutionId })
+    .populate('studentId', 'firstName lastName email academicNumber')
+    .populate('courseId', 'title code')
+    .lean();
+}
+
+export async function findRequestProof(requestId, institutionId) {
+  return EnrollmentRequest.findOne({ _id: requestId, institutionId })
+    .select('+proof.data')
+    .lean();
+}
 
 export async function findByUserId(userId) {
   return OfficerPermissions.findOne({ userId }).lean();

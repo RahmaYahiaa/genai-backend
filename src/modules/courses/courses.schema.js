@@ -73,8 +73,15 @@ const enrollmentRequestIdParamSchema = z.object({
   requestId: objectIdField('requestId'),
 });
 
+const requestProofSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.enum(['image/png', 'image/jpeg', 'application/pdf']),
+  data: z.string().min(16, 'A valid base64 file is required').max(2100000, 'Proof files must be 1.5 MB or smaller'),
+});
+
 const requestEnrollmentSchema = z.object({
   note: z.string().trim().min(3, 'note must be at least 3 characters').max(500).optional(),
+  proof: requestProofSchema.optional(),
 });
 
 const decideEnrollmentRequestSchema = z.object({

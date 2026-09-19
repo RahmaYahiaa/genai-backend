@@ -517,7 +517,7 @@ export function createCoursesService({
     };
   }
 
-  async function requestEnrollment(user, courseId, { note }) {
+  async function requestEnrollment(user, courseId, { note, proof }) {
     assertCatalogStudent(user);
     const course = await getCourseOrNotFound(courseId);
     if (course.isPersonal) {
@@ -540,6 +540,16 @@ export function createCoursesService({
       courseId: course._id,
       institutionId: course.institutionId,
       studentNote: note ?? null,
+      ...(proof
+        ? {
+            proof: {
+              fileName: proof.fileName.trim(),
+              mimeType: proof.mimeType,
+              size: Buffer.byteLength(proof.data, 'base64'),
+              data: proof.data,
+            },
+          }
+        : {}),
     });
     return toPublicEnrollmentRequest(request);
   }

@@ -57,6 +57,21 @@ const invitationsQuerySchema = z.object({
   status: z.enum(['pending', 'accepted', 'revoked']).optional(),
 });
 
+const requestsQuerySchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const requestIdParamSchema = z.object({
+  requestId: z.string().regex(OBJECT_ID_PATTERN, 'A valid request id is required'),
+});
+
+const decideRequestSchema = z.object({
+  decision: z.enum(['APPROVED', 'REJECTED']),
+  note: z.string().trim().min(3, 'note must be at least 3 characters').max(500).optional(),
+});
+
 export const adminSchemas = {
   userIdParam: userIdParamSchema,
   setActive: setActiveSchema,
@@ -68,4 +83,7 @@ export const adminSchemas = {
   stageImport: stageImportSchema,
   batchIdParam: batchIdParamSchema,
   invitationsQuery: invitationsQuerySchema,
+  requestsQuery: requestsQuerySchema,
+  requestIdParam: requestIdParamSchema,
+  decideRequest: decideRequestSchema,
 };

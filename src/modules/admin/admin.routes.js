@@ -22,5 +22,9 @@ export function createAdminRouter({ controller, middlewares, guards, validators 
   router.delete('/imports/:batchId', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.batchIdParam, controller.discardImport);
   router.get('/invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.invitationsQuery, controller.listInvitations);
 
+  router.get('/requests', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestsQuery, controller.listRequests);
+  router.get('/requests/:requestId/proof', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestIdParam, controller.getRequestProof);
+  router.post('/requests/:requestId/decision', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestIdParam, validators.decideRequest, controller.decideRequest);
+
   return router;
 }
