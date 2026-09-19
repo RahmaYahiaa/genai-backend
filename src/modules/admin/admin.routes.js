@@ -33,6 +33,10 @@ export function createAdminRouter({ controller, middlewares, guards, validators 
   router.get('/link-invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.ACCOUNTS_LINK), validators.linkInvitationsQuery, controller.listLinkInvitations);
   router.post('/link-invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.ACCOUNTS_LINK), validators.sendLinkInvitation, controller.sendLinkInvitation);
 
+  router.get('/audit', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.AUDIT_VIEW), validators.auditQuery, controller.listAuditEvents);
+  router.get('/health', guards.authenticate, middlewares.requireInstitutionAdmin, controller.getHealth);
+  router.get('/analytics', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.ANALYTICS_VIEW), controller.getAnalytics);
+
   return router;
 }
 

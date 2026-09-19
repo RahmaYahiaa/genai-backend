@@ -101,6 +101,14 @@ const linkRespondSchema = z.object({
   decision: z.enum(['accept', 'decline']),
 });
 
+const auditQuerySchema = z.object({
+  scope: z.enum(OFFICER_PERMISSION_KEY_VALUES).optional(),
+  search: z.string().trim().min(1).max(100).optional(),
+  period: z.enum(['7d', '30d', '90d', 'all']).default('30d'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export const adminSchemas = {
   userIdParam: userIdParamSchema,
   setActive: setActiveSchema,
@@ -120,4 +128,5 @@ export const adminSchemas = {
   linkInvitationsQuery: linkInvitationsQuerySchema,
   invitationIdParam: invitationIdParamSchema,
   linkRespond: linkRespondSchema,
+  auditQuery: auditQuerySchema,
 };

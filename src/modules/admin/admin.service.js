@@ -22,6 +22,9 @@ const SETTING_LABEL_AR = {
   allowedSupplementalSourceTypes: 'سياسة المصادر المساندة',
 };
 
+const DAY_MS = 864e5;
+const ESTIMATED_COST_PER_AI_ACTION_USD = 0.0004;
+
 export function createAdminService({ adminRepository, coursesService, enrollmentRequestRepository }) {
   async function permissionKeysOf(user) {
     if (user.role !== ROLES.INSTITUTION_ADMIN) return [];
@@ -613,6 +616,175 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     };
   }
 
+  function periodStart(period) {
+    const days = { '7d': 7, '30d': 30, '90d': 90 }[period];
+    return days ? new Date(Date.now() - days * DAY_MS) : null;
+  }
+
+  async function listAuditEvents(actor, { scope, search, period, page, limit }) {
+    const keys = await permissionKeysOf(actor);
+    const isSuper = actor.isSuperAdmin === true;
+    const visibleScopes = isSuper ? OFFICER_PERMISSION_KEY_VALUES : keys;
+    if (!isSuper && scope && !visibleScopes.includes(scope)) {
+      return { items: [], total: 0, page, limit, scopes: visibleScopes };
+    }
+    const { items, total } = await adminRepository.listAuditEvents(actor.institutionId, {
+      scopes: isSuper ? null : visibleScopes,
+      scope: scope ?? null,
+      search: search ?? null,
+      since: periodStart(period),
+      skip: (page - 1) * limit,
+      limit,
+    });
+    return {
+      items: items.map((event) => ({
+        id: event._id.toString(),
+        type: event.type,
+        scope: event.scope,
+        actorName: event.actorName,
+        summary: event.summary,
+        detail: event.detail ?? null,
+        at: event.createdAt,
+      })),
+      total,
+      page,
+      limit,
+      scopes: visibleScopes,
+    };
+  }
+
+  async function getInstitutionHealth(actor) {
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    if (!institution) throw new NotFoundError('Institution not found');
+    const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
+    const [pendingRequests, invitationDates, awaitingLinkConsents, courses, officerTotal, activeOfficerIds] =
+      await Promise.all([
+        adminRepository.countPendingEnrollmentRequests(actor.institutionId),
+        adminRepository.listPendingInvitationDates(actor.institutionId),
+        adminRepository.countAwaitingLinkConsents(actor.institutionId),
+        adminRepository.listInstitutionCourses(actor.institutionId),
+        adminRepository.countOfficersInInstitution(actor.institutionId),
+        adminRepository.listActiveOfficerActorIds(actor.institutionId, thirtyDaysAgo),
+      ]);
+    const courseIds = courses.map((course) => course._id);
+    const materialCounts = await adminRepository.materialCountsByCourse(courseIds);
+    const withMaterials = new Set(materialCounts.map((row) => row._id.toString()));
+    const zeroMaterial = courses.filter((course) => !withMaterials.has(course._id.toString()));
+    const oldestInvitationDays = invitationDates.length
+      ? Math.floor(
+          (Date.now() - Math.min(...invitationDates.map((row) => new Date(row.createdAt).getTime()))) / DAY_MS,
+        )
+      : 0;
+    const contractDaysRemaining = institution.contractEndsAt
+      ? Math.ceil((new Date(institution.contractEndsAt).getTime() - Date.now()) / DAY_MS)
+      : null;
+    return {
+      pendingRequests,
+      invitations: {
+        pending: invitationDates.length,
+        oldestWaitingDays: oldestInvitationDays,
+      },
+      awaitingLinkConsents,
+      courses: {
+        total: courses.length,
+        withoutMaterials: zeroMaterial.length,
+        withoutMaterialsCodes: zeroMaterial.slice(0, 5).map((course) => course.code ?? null),
+      },
+      officers: {
+        total: officerTotal,
+        activeLast30d: activeOfficerIds.length,
+      },
+      contract: {
+        endsAt: institution.contractEndsAt ?? null,
+        daysRemaining: contractDaysRemaining,
+        expired: contractDaysRemaining !== null ? contractDaysRemaining < 0 : false,
+      },
+    };
+  }
+
+  async function getAnalyticsSnapshot(actor) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
+    const courses = await adminRepository.listInstitutionCourses(actor.institutionId);
+    const courseIds = courses.map((course) => course._id);
+    const [materialCounts, enrollmentCounts, stats] = await Promise.all([
+      adminRepository.materialCountsByCourse(courseIds),
+      adminRepository.enrollmentCountsByCourse(courseIds),
+      adminRepository.submissionStatsLast30d(courseIds, thirtyDaysAgo),
+    ]);
+    const withMaterials = new Set(materialCounts.map((row) => row._id.toString()));
+    const studentsByCourse = new Map(enrollmentCounts.map((row) => [row._id.toString(), row.count]));
+    const groups = new Map();
+    for (const course of courses) {
+      const prefix = (String(course.code ?? '').match(/^[A-Za-z]+/)?.[0] ?? 'GEN').toUpperCase();
+      if (!groups.has(prefix)) {
+        groups.set(prefix, { courses: 0, withoutMaterials: 0, students: 0, staff: new Set() });
+      }
+      const group = groups.get(prefix);
+      group.courses += 1;
+      if (!withMaterials.has(course._id.toString())) group.withoutMaterials += 1;
+      group.students += studentsByCourse.get(course._id.toString()) ?? 0;
+      for (const member of course.staff ?? []) {
+        if (member?.userId) group.staff.add(member.userId.toString());
+      }
+    }
+    const prefixes = [...groups.keys()];
+    const departments = await adminRepository.listDepartmentsByCodes(actor.institutionId, prefixes);
+    const departmentNames = new Map(departments.map((unit) => [String(unit.code).toUpperCase(), unit.name]));
+    const allStaff = new Set();
+    for (const group of groups.values()) {
+      for (const id of group.staff) allStaff.add(id);
+    }
+    const activeDoctors = await adminRepository.countActiveUsersIn([...allStaff], thirtyDaysAgo);
+    const activeByGroup = new Map();
+    for (const prefix of prefixes) {
+      const group = groups.get(prefix);
+      activeByGroup.set(
+        prefix,
+        [...group.staff].length
+          ? await adminRepository.countActiveUsersIn([...group.staff], thirtyDaysAgo)
+          : 0,
+      );
+    }
+    const faculties = prefixes.map((prefix) => {
+      const group = groups.get(prefix);
+      const name = departmentNames.get(prefix) ?? prefix;
+      return {
+        id: prefix,
+        name: { en: name, ar: name },
+        doctors: group.staff.size,
+        activeDoctors: activeByGroup.get(prefix) ?? 0,
+        students: group.students,
+        courses: group.courses,
+        coursesWithoutMaterials: group.withoutMaterials,
+        aiCalls30d: 0,
+        masteryAvg: null,
+      };
+    });
+    if (faculties.length === 1) {
+      faculties[0].aiCalls30d = stats.aiActions;
+      faculties[0].masteryAvg = stats.avgScore !== null ? Math.min(100, Math.round(stats.avgScore)) : null;
+    }
+    const totalDoctors = allStaff.size;
+    return {
+      asOf: new Date().toISOString(),
+      faculties,
+      coverageGaps: faculties
+        .filter((row) => row.courses > 0)
+        .map((row) => ({
+          department: row.name,
+          missingPercent: Math.round((row.coursesWithoutMaterials / row.courses) * 100),
+        }))
+        .filter((row) => row.missingPercent > 0)
+        .sort((a, b) => b.missingPercent - a.missingPercent)
+        .slice(0, 6),
+      usage: {
+        aiCalls30d: stats.aiActions,
+        estCostUsd: Math.round(stats.aiActions * ESTIMATED_COST_PER_AI_ACTION_USD * 100) / 100,
+        activeDoctorsPct: totalDoctors ? Math.round((activeDoctors / totalDoctors) * 100) : 0,
+      },
+    };
+  }
+
   return {
     permissionKeysOf,
     officerMe,
@@ -640,5 +812,8 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     sendLinkInvitation,
     myLinkInvitations,
     respondToLinkInvitation,
+    listAuditEvents,
+    getInstitutionHealth,
+    getAnalyticsSnapshot,
   };
 }

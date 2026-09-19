@@ -220,6 +220,33 @@ export function createAdminController({ adminService }) {
     }
   }
 
+  async function listAuditEvents(req, res, next) {
+    try {
+      const data = await adminService.listAuditEvents(req.user, req.validated.query);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function getHealth(req, res, next) {
+    try {
+      const data = await adminService.getInstitutionHealth(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function getAnalytics(req, res, next) {
+    try {
+      const data = await adminService.getAnalyticsSnapshot(req.user);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   return {
     getMe,
     listUsers,
@@ -245,5 +272,8 @@ export function createAdminController({ adminService }) {
     sendLinkInvitation,
     myLinkInvitations,
     respondLinkInvitation,
+    listAuditEvents,
+    getHealth,
+    getAnalytics,
   };
 }

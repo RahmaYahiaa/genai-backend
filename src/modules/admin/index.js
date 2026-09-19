@@ -49,6 +49,7 @@ export const adminRouter = createAdminRouter({
     linkInvitationsQuery: validateSchemas({ query: adminSchemas.linkInvitationsQuery }),
     invitationIdParam: validateSchemas({ params: adminSchemas.invitationIdParam }),
     linkRespond: validateSchemas({ body: adminSchemas.linkRespond }),
+    auditQuery: validateSchemas({ query: adminSchemas.auditQuery }),
   },
 });
 
