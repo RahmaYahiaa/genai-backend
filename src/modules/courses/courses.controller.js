@@ -7,6 +7,11 @@ export function createCoursesController({ coursesService }) {
     sendCreated(res, course);
   });
 
+  const creationPolicy = asyncHandler(async (req, res) => {
+    const data = await coursesService.getCreationPolicy(req.user);
+    sendSuccess(res, { data });
+  });
+
   const list = asyncHandler(async (req, res) => {
     const { q, page, limit } = req.validated.query;
     const { items, total } = await coursesService.listCourses(req.user, { q, page, limit });
@@ -156,6 +161,7 @@ export function createCoursesController({ coursesService }) {
 
   return {
     create,
+    creationPolicy,
     list,
     getOne,
     update,

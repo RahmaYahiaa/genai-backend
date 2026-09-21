@@ -166,7 +166,57 @@ export function createCoursesService({
       return toPublicCourse(course);
     }
 
+    if (user.role === ROLES.INSTRUCTOR) {
+      if (!user.institutionId) {
+        throw new ForbiddenError('Instructor has no institution scope');
+      }
+      const institution = await academicStructureService.getInstitutionOrNull(user.institutionId);
+      if (institution?.settings?.allowDoctorCourseCreation === false) {
+        throw new ForbiddenError(
+          'Your institution has paused doctor course creation (إنشاء المقررات بواسطة الدكاترة موقوف من إعدادات مؤسستك)',
+        );
+      }
+      if (data.departmentId) {
+        const unit = await academicStructureService.getUnitInScope(
+          data.departmentId,
+          user.institutionId,
+        );
+        if (unit.type !== 'department') {
+          throw new ValidationError('departmentId must reference a department unit');
+        }
+      }
+      if (data.semesterId) {
+        const unit = await academicStructureService.getUnitInScope(
+          data.semesterId,
+          user.institutionId,
+        );
+        if (unit.type !== 'semester') {
+          throw new ValidationError('semesterId must reference a semester unit');
+        }
+      }
+      const course = await courseRepository.create({
+        title: data.title,
+        code: data.code ?? null,
+        description: data.description ?? null,
+        institutionId: user.institutionId,
+        departmentId: data.departmentId ?? null,
+        semesterId: data.semesterId ?? null,
+        createdBy: user.id,
+        staff: [{ userId: user.id, role: COURSE_STAFF_ROLES.INSTRUCTOR }],
+      });
+      return toPublicCourse(course);
+    }
+
     if (user.role === ROLES.STUDENT && user.accountType === ACCOUNT_TYPES.INDIVIDUAL) {
+      const domain = String(user.email ?? '').split('@').pop()?.toLowerCase();
+      if (domain) {
+        const owningInstitution = await academicStructureService.findInstitutionByEmailDomain(domain);
+        if (owningInstitution) {
+          throw new ForbiddenError(
+            'Personal course creation is paused for accounts on institution-approved domains — link your account instead (إنشاء المقررات الشخصية موقوف للحسابات على نطاق معتمد مؤسسيًا - اربط حسابك أولًا)',
+          );
+        }
+      }
       const course = await courseRepository.create({
         title: data.title,
         description: data.description ?? null,
@@ -180,6 +230,26 @@ export function createCoursesService({
     throw new ForbiddenError(
       'Institutional students cannot create courses; institution courses are created by the institution admin',
     );
+  }
+
+  async function getCreationPolicy(user) {
+    if (user.role === ROLES.INSTRUCTOR || user.role === ROLES.INSTITUTION_ADMIN) {
+      const institution = user.institutionId
+        ? await academicStructureService.getInstitutionOrNull(user.institutionId)
+        : null;
+      return {
+        allowDoctorCourseCreation: institution?.settings?.allowDoctorCourseCreation !== false,
+        canCreatePersonal: false,
+      };
+    }
+    const domain = String(user.email ?? '').split('@').pop()?.toLowerCase();
+    const owningInstitution = user.accountType === ACCOUNT_TYPES.INDIVIDUAL && domain
+      ? await academicStructureService.findInstitutionByEmailDomain(domain)
+      : null;
+    return {
+      allowDoctorCourseCreation: false,
+      canCreatePersonal: !owningInstitution,
+    };
   }
 
   /** Role-scoped listing: admin -> institution courses, instructor -> staffed, student -> enrolled + personal. */
@@ -673,6 +743,7 @@ export function createCoursesService({
 
   return {
     createCourse,
+    getCreationPolicy,
     listCourses,
     getCourse,
     ensureCourseWriteAccess,

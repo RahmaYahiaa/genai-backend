@@ -64,6 +64,7 @@ export function toPublicInstitution(institution) {
     isActive: institution.isActive,
     settings: {
       allowSelfRegistration: institution.settings?.allowSelfRegistration ?? true,
+      allowDoctorCourseCreation: institution.settings?.allowDoctorCourseCreation ?? true,
       allowedSupplementalSourceTypes: institution.settings?.allowedSupplementalSourceTypes ?? [],
     },
     createdAt: institution.createdAt,

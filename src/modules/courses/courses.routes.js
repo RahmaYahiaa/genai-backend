@@ -14,12 +14,18 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
 
   router.post(
     '/',
-    guards.authorize('institution_admin', 'student'),
+    guards.authorize('institution_admin', 'instructor', 'student'),
     validators.createCourse,
     controller.create,
   );
 
   router.get('/', validators.listCoursesQuery, controller.list);
+
+  router.get(
+    '/creation-policy',
+    guards.authorize('institution_admin', 'instructor', 'student'),
+    controller.creationPolicy,
+  );
 
   // Static paths first: they must never be shadowed by GET /:courseId.
   router.get(
