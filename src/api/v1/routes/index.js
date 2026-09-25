@@ -16,6 +16,8 @@ import { remedialRouter } from '../../../modules/remedial/index.js';
 import { auditRouter } from '../../../modules/audit/index.js';
 import { analyticsRouter } from '../../../modules/analytics/index.js';
 import { adminRouter, linkConsentRouter } from '../../../modules/admin/index.js';
+import { learningResourcesRouter } from '../../../modules/content-generation/index.js';
+import { lernaRouter } from '../../../modules/lerna/index.js';
 
 const router = Router();
 
@@ -36,6 +38,15 @@ router.use(practiceRouter);
 // Handles /courses/:courseId/reassessments/* and /learning-gain routes
 // internally (reassessment module).
 router.use(reassessmentRouter);
+
+// User-scoped LeRna (Academic OS) bridge: /students/me/learning,
+// /students/me/learning/review, /students/me/ai-preferences, /ai-health.
+router.use(lernaRouter);
+
+// Handles /courses/:courseId/learning-resources and /learning-resources/:id/file
+// (content-generation module - EDUNation "Study Tools" parity: grounded text
+// resources + real SVG/PPTX artifacts; media kinds honestly unavailable).
+router.use(learningResourcesRouter);
 
 // Handles /courses/:courseId/assignments/* and /assignments/* routes
 // internally (assignments module).

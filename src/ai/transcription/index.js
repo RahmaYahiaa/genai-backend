@@ -23,5 +23,8 @@ export function createTranscriptionProvider(overrides = {}) {
   throw new AiProviderError(`Unknown transcription provider "${provider}"`);
 }
 
-// Default singleton used by module composition roots (manual DI).
-export const transcriptionProvider = createTranscriptionProvider();
+// Default singleton used by module composition roots (manual DI). The voice
+// tutor is hidden in LeRna-bridge mode (LeRna voice is preview-only), so the
+// legacy Groq transcription provider is suspended unless a real key exists.
+export const transcriptionProvider =
+  config.lerna.enabled && !config.ai.groqApiKey ? null : createTranscriptionProvider();

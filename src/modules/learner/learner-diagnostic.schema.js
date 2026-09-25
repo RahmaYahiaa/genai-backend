@@ -16,14 +16,31 @@ export const startDiagnosticSchema = z.object({
   questionsPerTopic: z.coerce.number().int().min(1).max(5).default(2),
 });
 
-export const submitAnswerSchema = z.object({
-  questionId: objectIdField('questionId'),
-  responseMode: z.enum(['text', 'voice']).default('text'),
-  content: z.string().trim().min(1, 'answer content is required').max(5000),
-  // Required for voice answers (base64 audio payload).
-  audioBase64: z.string().min(1).max(2000000).optional(),
-  audioMimeType: z.string().trim().max(100).optional(),
-});
+export const submitAnswerSchema = z
+  .object({
+    questionId: objectIdField('questionId'),
+    // 'idk' = explicit "I don't know / skip" (EDUNation parity): recorded as
+    // missing-knowledge evidence, never as a misconception, no LLM call.
+    responseMode: z.enum(['text', 'voice', 'idk']).default('text'),
+    content: z.string().trim().max(5000).default(''),
+    // Required for voice answers (base64 audio payload).
+    audioBase64: z.string().min(1).max(2000000).optional(),
+    audioMimeType: z.string().trim().max(100).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.responseMode === 'idk') return;
+    if (value.responseMode === 'voice') {
+      // Voice answers are validated by their audio payload, not by text
+      // content — the transcription provider supplies the text downstream.
+      if (!value.audioBase64) {
+        ctx.addIssue({ code: 'custom', path: ['audioBase64'], message: 'audioBase64 is required for voice answers' });
+      }
+      return;
+    }
+    if (value.content.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['content'], message: 'answer content is required' });
+    }
+  });
 
 // --- Mandatory Zod contracts for LLM outputs (never trust the model) ---
 

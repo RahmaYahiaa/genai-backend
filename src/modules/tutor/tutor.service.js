@@ -1,4 +1,5 @@
-import { GROUNDING_STATUSES } from '../../config/constants.js';
+import { config } from '../../config/index.js';
+import { GROUNDING_STATUSES, RETRIEVAL_SETTINGS } from '../../config/constants.js';
 import {
   AiProviderError,
   InsufficientEvidenceError,
@@ -6,14 +7,30 @@ import {
   ValidationError,
 } from '../../shared/errors/index.js';
 import { toPublicTutorSession } from './tutor-session.model.js';
-import { llmTutorAnswerSchema } from './tutor.schema.js';
+import { llmExternalAnswerSchema, llmTutorAnswerSchema } from './tutor.schema.js';
+import {
+  isWebSearchEnabled,
+  planSourceStrategy,
+  searchTrustedSources,
+} from '../../shared/web/trusted-search.js';
+import { chunkText } from '../../shared/text/chunker.js';
+import { cosineSimilarity } from '../../shared/math/vector-math.js';
 
 const TUTOR_SYSTEM_PROMPT =
   'You are a course tutor for an academic learning platform. ' +
   'Answer ONLY from the trusted course material excerpts provided in the input. ' +
   'Every claim must come from those excerpts; if they are not enough, say so. ' +
+  'Answer in the same language as the student question (Arabic question -> Arabic answer with technical terms kept in English where standard). ' +
   'Respond with JSON only, matching exactly: ' +
   '{"answer":"<your grounded explanation>","usedChunkIds":["<ids of the excerpts you actually used>"]}';
+
+const EXTERNAL_TUTOR_SYSTEM_PROMPT =
+  'You are a course tutor for an academic learning platform. ' +
+  'Answer ONLY from the trusted external academic sources provided in the input - never from your own memory. ' +
+  'Every claim must come from those sources; if they are not enough, say so. ' +
+  'Answer in the same language as the student question (Arabic question -> Arabic answer with technical terms kept in English where standard). ' +
+  'Respond with JSON only, matching exactly: ' +
+  '{"answer":"<your grounded explanation>","usedSourceIndexes":[<1-based indexes of the sources you actually used>]}';
 
 /**
  * AI Tutor (flow steps 11-13). Owner-only. The deterministic retrieval gate
@@ -28,6 +45,8 @@ export function createTutorService({
   retrievalService,
   tutorSessionRepository,
   llmProvider,
+  embeddingProvider = null,
+  lernaService = null,
 }) {
   function parseLlmJson(raw, schema, taskName) {
     const result = schema.safeParse(raw);
@@ -113,11 +132,23 @@ export function createTutorService({
     const topic = topics.find((item) => item.id === session.topicId.toString());
     const topicTitle = topic?.title ?? 'Unknown topic';
 
+    // LeRna (Academic OS) is the source of truth for AI behaviour: when the
+    // integration is enabled the whole answer path (grounding, citation
+    // discipline, trusted external discovery, abstention) runs inside LeRna.
+    // Our session/persistence contract stays exactly the same.
+    if (config.lerna.enabled && lernaService?.isReady?.()) {
+      return askViaLerna({ user, course, session, data });
+    }
+
     // Trusted retrieval first (RAG): courseId filter is applied inside the
-    // vector search, chunks below the relevance floor are dropped.
+    // vector search, chunks below the relevance floor are dropped. Optional
+    // materialIds scope retrieval to the student's chosen files (EDUNation
+    // "Use materials" parity); scoped questions never fall back to the web.
+    const scoped = Array.isArray(data.materialIds) && data.materialIds.length > 0;
     const { contexts } = await retrievalService.retrieveContext({
       courseId: courseDocumentId(course),
       query: data.content,
+      materialIds: scoped ? data.materialIds : null,
     });
 
     // The student question is always recorded, even when we refuse to answer.
@@ -128,9 +159,16 @@ export function createTutorService({
       grounding: null,
     });
 
+    // General-mode fallback (EDUNation parity): when course material has no
+    // sufficiently-matching evidence, try trusted external academic discovery
+    // instead of the model's memory. Still abstain when nothing trusted fits.
+    if (contexts.length === 0 && !scoped) {
+      return answerFromTrustedExternal({ user, course, session, topicTitle, question: data.content });
+    }
+
     if (contexts.length === 0) {
       throw new InsufficientEvidenceError(
-        `No trusted material in this course matches the question closely enough to answer safely`,
+        `No trusted material in the selected course materials matches the question closely enough to answer safely`,
       );
     }
 
@@ -178,24 +216,208 @@ export function createTutorService({
       grounding: GROUNDING_STATUSES.GROUNDED,
     });
 
-    const message = updated.messages[updated.messages.length - 1];
+    return shapedAnswer(updated, 'uploaded_material');
+  }
+
+  /**
+   * LeRna-backed answer path. The student question is recorded first (even on
+   * refusal), then the AI service answers; `abstained: true` maps onto the
+   * same 422 INSUFFICIENT_EVIDENCE contract the legacy path used, so the
+   * frontend abstain state works identically.
+   */
+  async function askViaLerna({ user, course, session, data }) {
+    const scoped = Array.isArray(data.materialIds) && data.materialIds.length > 0;
+    const documentIds = scoped
+      ? await lernaService.ensureDocumentIds(user, course, data.materialIds)
+      : null;
+
+    // The student question is always recorded, even when the tutor abstains.
+    await tutorSessionRepository.pushMessage(session._id, {
+      role: 'student',
+      content: data.content,
+      citations: [],
+      grounding: null,
+    });
+
+    const response = await lernaService.askTutor({
+      user,
+      course,
+      session,
+      question: data.content,
+      documentIds,
+    });
+
+    if (response.abstained) {
+      throw new InsufficientEvidenceError(
+        response.answer ||
+          'No trusted material matches the question closely enough to answer safely',
+      );
+    }
+
+    const knowledgeSource =
+      response.source_type === 'student_upload' ? 'uploaded_material' : 'trusted_external';
+    const citations = (response.evidence ?? []).map((item, index) => ({
+      chunkId: null,
+      materialId: null,
+      order: index,
+      score: typeof item.trust_score === 'number' ? item.trust_score : 0,
+      snippet: String(item.excerpt ?? '').slice(0, 400),
+      sourceUrl: item.url ?? null,
+      sourceTitle: item.source ?? null,
+      sourceDomain: item.url ? new URL(item.url).hostname : null,
+      sourceAuthority: item.authority ?? null,
+    }));
+
+    const updated = await tutorSessionRepository.pushMessage(session._id, {
+      role: 'tutor',
+      content: response.answer,
+      citations,
+      grounding:
+        knowledgeSource === 'uploaded_material'
+          ? GROUNDING_STATUSES.GROUNDED
+          : GROUNDING_STATUSES.EXTERNAL_TRUSTED,
+      knowledgeSource,
+      searchState: response.search_state ?? null,
+      evidenceLimitation: response.evidence_limitation ?? null,
+    });
+
+    return shapedAnswer(updated, knowledgeSource);
+  }
+
+  function mapCitation(citation) {
     return {
-      sessionId: updated._id.toString(),
+      chunkId: citation.chunkId ? citation.chunkId.toString() : null,
+      materialId: citation.materialId ? citation.materialId.toString() : null,
+      order: citation.order,
+      score: citation.score,
+      snippet: citation.snippet,
+      sourceUrl: citation.sourceUrl ?? null,
+      sourceTitle: citation.sourceTitle ?? null,
+      sourceDomain: citation.sourceDomain ?? null,
+      sourceAuthority: citation.sourceAuthority ?? null,
+    };
+  }
+
+  function shapedAnswer(sessionDoc, knowledgeSource) {
+    const message = sessionDoc.messages[sessionDoc.messages.length - 1];
+    return {
+      sessionId: sessionDoc._id.toString(),
+      knowledgeSource: message.knowledgeSource ?? knowledgeSource,
       message: {
         id: message._id.toString(),
         role: message.role,
         content: message.content,
         grounding: message.grounding ?? null,
-        citations: (message.citations ?? []).map((citation) => ({
-          chunkId: citation.chunkId.toString(),
-          materialId: citation.materialId.toString(),
-          order: citation.order,
-          score: citation.score,
-          snippet: citation.snippet,
-        })),
+        knowledgeSource: message.knowledgeSource ?? knowledgeSource,
+        searchState: message.searchState ?? null,
+        evidenceLimitation: message.evidenceLimitation ?? null,
+        citations: (message.citations ?? []).map(mapCitation),
         createdAt: message.createdAt,
       },
     };
+  }
+
+  /**
+   * Trusted external path (EDUNation flow B): plan sources -> Tavily trusted
+   * search (registry-gated, SSRF-guarded) -> chunk + embed -> relevance gate
+   * -> grounded LLM answer citing sources by index. Any failure to find
+   * trusted evidence abstains explicitly; the model's memory is never used.
+   */
+  async function answerFromTrustedExternal({ _user, _course, session, topicTitle, question }) {
+    if (!isWebSearchEnabled() || !embeddingProvider) {
+      throw new InsufficientEvidenceError(
+        'No trusted material in this course matches the question closely enough, and trusted external discovery is not available',
+      );
+    }
+    const strategy = await planSourceStrategy({ query: question, topic: topicTitle, llmProvider });
+    const { state, sources } = await searchTrustedSources({
+      query: strategy.query,
+      categories: strategy.categories,
+    });
+    if (state !== 'ready' || sources.length === 0) {
+      throw new InsufficientEvidenceError(
+        'No trusted material in this course matches the question closely enough, and no trusted external academic source could answer it either',
+      );
+    }
+
+    const topSources = sources.slice(0, 3);
+    const chunkRows = [];
+    for (const [sourceIndex, source] of topSources.entries()) {
+      const chunks = chunkText(source.text).slice(0, 3);
+      for (const text of chunks) {
+        chunkRows.push({ sourceIndex, source, text });
+      }
+    }
+    const [queryVector, ...chunkVectors] = await embeddingProvider.embed([
+      question,
+      ...chunkRows.map((row) => row.text),
+    ]);
+    const ranked = chunkRows
+      .map((row, index) => ({ ...row, score: cosineSimilarity(queryVector, chunkVectors[index]) }))
+      .filter((row) => row.score >= RETRIEVAL_SETTINGS.MIN_SCORE)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    if (ranked.length === 0) {
+      throw new InsufficientEvidenceError(
+        'Trusted external sources were found but none matched the question closely enough to answer safely',
+      );
+    }
+
+    // Renumber deduplicated sources 1..N for the citation contract.
+    const usedSources = [...new Map(ranked.map((row) => [row.sourceIndex, row.source])).values()];
+    const indexBySource = new Map(usedSources.map((source, index) => [source, index + 1]));
+    const generated = parseLlmJson(
+      await llmProvider.completeJson({
+        task: 'answer_tutor_question_external',
+        system: EXTERNAL_TUTOR_SYSTEM_PROMPT,
+        user: JSON.stringify({
+          topicTitle,
+          mode: session.mode,
+          question,
+          sources: usedSources.map((source, index) => ({
+            index: index + 1,
+            title: source.title,
+            url: source.url,
+            excerpts: ranked
+              .filter((row) => row.source === source)
+              .map((row) => row.text.slice(0, 1200)),
+          })),
+        }),
+      }),
+      llmExternalAnswerSchema,
+      'answer_tutor_question_external',
+    );
+
+    const citations = [];
+    for (const usedIndex of generated.usedSourceIndexes ?? []) {
+      const source = usedSources[usedIndex - 1];
+      if (!source) continue;
+      const best = ranked.find((row) => row.source === source);
+      citations.push({
+        chunkId: null,
+        materialId: null,
+        order: indexBySource.get(source) - 1,
+        score: best?.score ?? 0,
+        snippet: best ? best.text.slice(0, 400) : source.text.slice(0, 400),
+        sourceUrl: source.url,
+        sourceTitle: source.title,
+        sourceDomain: source.domain,
+        sourceAuthority: source.authority,
+      });
+    }
+    if (citations.length === 0) {
+      throw new AiProviderError(
+        'answer_tutor_question_external: AI answer was not grounded in trusted sources',
+      );
+    }
+
+    const updated = await tutorSessionRepository.pushMessage(session._id, {
+      role: 'tutor',
+      content: generated.answer,
+      citations,
+      grounding: GROUNDING_STATUSES.EXTERNAL_TRUSTED,
+    });
+    return shapedAnswer(updated, 'trusted_external');
   }
 
   return { createSession, listSessions, getSession, askQuestion };

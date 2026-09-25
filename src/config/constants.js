@@ -85,6 +85,8 @@ export const CORRECTNESS_LEVELS = {
   INCORRECT: 'incorrect',
   PARTIAL: 'partial',
   CORRECT: 'correct',
+  // "I don't know": missing-knowledge evidence, NOT a misconception.
+  UNKNOWN: 'unknown',
 };
 
 export const QUESTION_DIFFICULTIES = {
@@ -165,6 +167,9 @@ export const GROUNDING_STATUSES = {
   PARTIALLY_GROUNDED: 'partially_grounded',
   INSUFFICIENT_EVIDENCE: 'insufficient_evidence',
   UNVERIFIED: 'unverified',
+  // Grounded in trusted external academic sources discovered live (EDUNation
+  // parity), never in the model's own memory.
+  EXTERNAL_TRUSTED: 'external_trusted',
 };
 
 // --- AI Teaching Assistant ---
@@ -186,6 +191,7 @@ export const ERROR_CODES = {
   RATE_LIMITED: 'RATE_LIMITED',
   INSUFFICIENT_EVIDENCE: 'INSUFFICIENT_EVIDENCE',
   AI_PROVIDER_ERROR: 'AI_PROVIDER_ERROR',
+  AI_SERVICE_UNAVAILABLE: 'AI_SERVICE_UNAVAILABLE',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   FEATURE_NOT_AVAILABLE_FOR_PERSONAL_COURSE: 'FEATURE_NOT_AVAILABLE_FOR_PERSONAL_COURSE',
   ASSIGNMENT_CLOSED: 'ASSIGNMENT_CLOSED',

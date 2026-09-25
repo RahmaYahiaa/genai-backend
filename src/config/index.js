@@ -60,6 +60,21 @@ const envSchema = z.object({
   ASSESSMENT_ENGINE_ENABLED: z.enum(['true', 'false']).default('true'),
   ASSESSMENT_ENGINE_URL: z.string().min(1).default('http://localhost:8002'),
 
+  // Trusted external academic discovery (EDUNation parity). Disabled without
+  // a TAVILY key: callers degrade to an explicit "unavailable" state.
+  WEB_SEARCH_ENABLED: z.enum(['true', 'false']).default('false'),
+  TAVILY_API_KEY: z.string().default(''),
+  TRUST_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
+
+  // Generated learning-resource artifacts (SVG diagrams, PPTX decks).
+  ARTIFACTS_DIR: z.string().min(1).default('data/artifacts'),
+
+  // LeRna (Academic OS) AI service integration: the existing backend is the
+  // only client of this internal service and forwards X-Student-Id only.
+  LERNA_ENABLED: z.enum(['true', 'false']).default('false'),
+  LERNA_API_URL: z.string().min(1).default('http://127.0.0.1:8000'),
+  LERNA_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
+
   CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(8000).default(1200),
   CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).max(1000).default(150),
   VECTOR_SEARCH_MODE: z.enum(['auto', 'atlas', 'fallback']).default('auto'),
@@ -154,6 +169,22 @@ export const config = Object.freeze({
   assessmentEngine: {
     enabled: rawConfig.ASSESSMENT_ENGINE_ENABLED === 'true',
     apiUrl: rawConfig.ASSESSMENT_ENGINE_URL.replace(/\/+$/, ''),
+  },
+
+  webSearch: {
+    enabled: rawConfig.WEB_SEARCH_ENABLED === 'true',
+    tavilyApiKey: rawConfig.TAVILY_API_KEY,
+    trustThreshold: rawConfig.TRUST_THRESHOLD,
+  },
+
+  artifacts: {
+    dir: rawConfig.ARTIFACTS_DIR,
+  },
+
+  lerna: {
+    enabled: rawConfig.LERNA_ENABLED === 'true',
+    apiUrl: rawConfig.LERNA_API_URL.replace(/\/+$/, ''),
+    timeoutMs: rawConfig.LERNA_TIMEOUT_MS,
   },
 
   rateLimit: {

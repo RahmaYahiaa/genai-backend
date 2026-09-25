@@ -4,6 +4,8 @@ import { authenticate } from '../auth/index.js';
 import { coursesService } from '../courses/index.js';
 import { retrievalService } from '../retrieval/index.js';
 import { llmProvider } from '../../ai/llm/index.js';
+import { embeddingProvider } from '../../ai/embeddings/index.js';
+import { lernaService } from '../lerna/index.js';
 import { createTutorService } from './tutor.service.js';
 import { createTutorController } from './tutor.controller.js';
 import { createTutorRouter } from './tutor.routes.js';
@@ -25,6 +27,8 @@ export const tutorService = createTutorService({
   retrievalService,
   tutorSessionRepository,
   llmProvider,
+  embeddingProvider,
+  lernaService,
 });
 
 const controller = createTutorController({ tutorService });

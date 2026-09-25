@@ -28,5 +28,8 @@ export function createEmbeddingProvider(overrides = {}) {
   throw new AiProviderError(`Unknown embedding provider "${provider}"`);
 }
 
-// Default singleton used by module composition roots (manual DI).
-export const embeddingProvider = createEmbeddingProvider();
+// Default singleton used by module composition roots (manual DI). When the
+// LeRna bridge is enabled the legacy local AI path is suspended per the
+// integration mandate: no Gemini/Groq calls, no construction-time config
+// errors for keys that are intentionally absent in this mode.
+export const embeddingProvider = config.lerna.enabled ? null : createEmbeddingProvider();

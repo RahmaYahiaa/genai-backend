@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { config } from '../../config/index.js';
 import { MATERIAL_SOURCE_TYPES, MATERIAL_STATUSES } from '../../config/constants.js';
 import { NotFoundError, UnprocessableEntityError, ValidationError } from '../../shared/errors/index.js';
 import { toPublicMaterial } from './material.model.js';
@@ -77,6 +78,20 @@ export function createKnowledgeIngestionService({
     });
 
     try {
+      // LeRna owns document indexing in bridge mode: local chunk embedding
+      // for the suspended legacy retrieval path is skipped, and the material
+      // is still stored + marked ready so the bridge can index it per student.
+      if (config.lerna.enabled) {
+        const ready = await materialRepository.updateById(material._id, {
+          $set: { status: MATERIAL_STATUSES.READY, chunkCount: 0, embeddingModel: null },
+        });
+        domainEvents.emit('MaterialsUploaded', {
+          courseId: courseDocumentId(course).toString(),
+          materialId: material._id.toString(),
+        });
+        return toPublicMaterial(ready);
+      }
+
       const vectors = await embeddingProvider.embed(chunkTexts);
 
       await materialChunkRepository.insertManyChunks(
@@ -228,6 +243,19 @@ export function createKnowledgeIngestionService({
     });
 
     try {
+      // LeRna owns indexing in bridge mode; local legacy chunk embedding is
+      // suspended (the file is still stored; the bridge indexes it lazily).
+      if (config.lerna.enabled) {
+        const ready = await materialRepository.updateById(material._id, {
+          $set: { status: MATERIAL_STATUSES.READY, chunkCount: 0, embeddingModel: null },
+        });
+        domainEvents.emit('MaterialsUploaded', {
+          courseId: materialFields.courseId.toString(),
+          materialId: material._id.toString(),
+        });
+        return toPublicMaterial(ready);
+      }
+
       const vectors = await embeddingProvider.embed(chunkTexts);
 
       await materialChunkRepository.insertManyChunks(

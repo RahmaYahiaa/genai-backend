@@ -52,6 +52,17 @@ export class InsufficientEvidenceError extends AppError {
  * Raised when an external AI provider fails or returns output that cannot be
  * validated. Never leaks provider internals to clients.
  */
+/**
+ * The LeRna AI service itself is unreachable or failed (distinct from an LLM
+ * provider issue): callers surface an honest "AI service unavailable" state
+ * and never fall back to model memory.
+ */
+export class AiServiceUnavailableError extends AppError {
+  constructor(message = 'The AI service is unavailable right now', details) {
+    super({ statusCode: 503, code: ERROR_CODES.AI_SERVICE_UNAVAILABLE, message, details, isOperational: true });
+  }
+}
+
 export class AiProviderError extends AppError {
   constructor(message = 'The AI service is temporarily unavailable') {
     super({ statusCode: 502, code: ERROR_CODES.AI_PROVIDER_ERROR, message, isOperational: true });

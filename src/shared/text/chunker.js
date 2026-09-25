@@ -8,7 +8,7 @@
 export function chunkText(text, { maxChars, overlapChars }) {
   const normalized = text
     .replace(/\r\n/g, '\n')
-    .split('\u0000')
+    .split('�')
     .join('')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')

@@ -8,19 +8,26 @@ import { GROUNDING_STATUSES, TUTOR_MODES } from '../../config/constants.js';
  */
 const tutorCitationSchema = new mongoose.Schema(
   {
+    // Course-material citation: the exact trusted chunk the answer claim is
+    // grounded in (null for trusted-external web citations).
     chunkId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'MaterialChunk',
-      required: true,
+      default: null,
     },
     materialId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Material',
-      required: true,
+      default: null,
     },
     order: { type: Number, required: true, min: 0 },
     score: { type: Number, required: true, min: 0 },
     snippet: { type: String, required: true, maxlength: 400 },
+    // Trusted-external citation (source discovered via the trust registry).
+    sourceUrl: { type: String, default: null, maxlength: 1000 },
+    sourceTitle: { type: String, default: null, maxlength: 300 },
+    sourceDomain: { type: String, default: null, maxlength: 200 },
+    sourceAuthority: { type: String, default: null, maxlength: 60 },
   },
   { _id: false },
 );
@@ -36,6 +43,17 @@ const tutorMessageSchema = new mongoose.Schema(
       enum: Object.values(GROUNDING_STATUSES),
       default: null,
     },
+    // LeRna-bridge persistence (additive): where the grounded evidence came
+    // from and the AI facade search state; null on legacy-path messages.
+    knowledgeSource: {
+      type: String,
+      enum: ['uploaded_material', 'trusted_external', null],
+      default: null,
+    },
+    searchState: { type: String, default: null, maxlength: 60 },
+    // Partial-coverage notice emitted by the grounding validator (null when
+    // the evidence fully covered the answer).
+    evidenceLimitation: { type: String, default: null, maxlength: 2000 },
     createdAt: { type: Date, default: Date.now },
   },
   { _id: true },
@@ -102,12 +120,19 @@ export function toPublicTutorSession(session) {
       role: message.role,
       content: message.content,
       grounding: message.grounding ?? null,
+      knowledgeSource: message.knowledgeSource ?? null,
+      searchState: message.searchState ?? null,
+      evidenceLimitation: message.evidenceLimitation ?? null,
       citations: (message.citations ?? []).map((citation) => ({
-        chunkId: citation.chunkId.toString(),
-        materialId: citation.materialId.toString(),
+        chunkId: citation.chunkId ? citation.chunkId.toString() : null,
+        materialId: citation.materialId ? citation.materialId.toString() : null,
         order: citation.order,
         score: citation.score,
         snippet: citation.snippet,
+        sourceUrl: citation.sourceUrl ?? null,
+        sourceTitle: citation.sourceTitle ?? null,
+        sourceDomain: citation.sourceDomain ?? null,
+        sourceAuthority: citation.sourceAuthority ?? null,
       })),
       createdAt: message.createdAt,
     })),
