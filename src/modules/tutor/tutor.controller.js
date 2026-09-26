@@ -35,5 +35,17 @@ export function createTutorController({ tutorService }) {
     sendCreated(res, result);
   });
 
-  return { createSession, listSessions, getSession, askQuestion };
+  const renameSession = asyncHandler(async (req, res) => {
+    const { courseId, tutorSessionId } = req.validated.params;
+    const session = await tutorService.renameSession(req.user, courseId, tutorSessionId, req.validated.body.title);
+    sendSuccess(res, { data: session });
+  });
+
+  const deleteSession = asyncHandler(async (req, res) => {
+    const { courseId, tutorSessionId } = req.validated.params;
+    const result = await tutorService.deleteSession(req.user, courseId, tutorSessionId);
+    sendSuccess(res, { data: result });
+  });
+
+  return { createSession, listSessions, getSession, askQuestion, renameSession, deleteSession };
 }

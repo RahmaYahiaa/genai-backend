@@ -108,17 +108,20 @@ export const llmTextResourceSchemas = {
   }),
 };
 
+// Tolerant of long labels / extra steps: trimmed to what the SVG can show.
+const clip = (max) => (value) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value);
 export const llmDiagramSpecSchema = z.object({
-  title: z.string().min(3).max(120),
+  title: z.string().min(3).max(300).transform(clip(120)),
   steps: z
     .array(
       z.object({
-        label: z.string().min(2).max(60),
-        detail: z.string().max(120).optional(),
+        label: z.string().min(1).max(300).transform(clip(60)),
+        detail: z.string().max(600).optional().nullable().transform((v) => (v ? clip(120)(v) : undefined)),
       }),
     )
     .min(2)
-    .max(6),
+    .max(12)
+    .transform((steps) => steps.slice(0, 6)),
 });
 
 export const llmDeckOutlineSchema = z.object({

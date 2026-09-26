@@ -21,3 +21,10 @@ export async function pushMessage(sessionId, message) {
 }
 
 export { toPublicTutorSession };
+export async function setTitle(sessionId, title) {
+  return TutorSession.findByIdAndUpdate(sessionId, { $set: { title } }, { new: true }).lean();
+}
+
+export async function deleteById(sessionId) {
+  return TutorSession.deleteOne({ _id: sessionId });
+}

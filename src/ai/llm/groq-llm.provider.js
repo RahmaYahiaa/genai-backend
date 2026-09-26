@@ -101,34 +101,9 @@ export function createGroqLlmProvider({
 
   async function callGroq(system, user) {
     const model = await resolveGroqModel();
-    let response;
-    try {
-      response = await fetch(GROQ_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${groqApiKey}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: maxTokens,
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-        }),
-      });
-    } catch {
-      throw new AiProviderError('LLM provider request failed');
-    }
-    // groq's free tier answers 429 under burst load (seeding, bulk grading):
-    // back off exponentially instead of failing the caller
-    for (let attempt = 0; attempt < 5 && response.status === 429; attempt += 1) {
-      await sleep(5000 * 2 ** attempt);
+    const post = async (temperature) => {
       try {
-        response = await fetch(GROQ_ENDPOINT, {
+        return await fetch(GROQ_ENDPOINT, {
           method: 'POST',
           headers: {
             authorization: `Bearer ${groqApiKey}`,
@@ -137,17 +112,32 @@ export function createGroqLlmProvider({
           body: JSON.stringify({
             model,
             max_tokens: maxTokens,
-            temperature: 0.2,
+            temperature,
             response_format: { type: 'json_object' },
             messages: [
               { role: 'system', content: system },
               { role: 'user', content: user },
             ],
           }),
+          // A stalled request must not hang the student's page forever.
+          signal: AbortSignal.timeout(60_000),
         });
       } catch {
         throw new AiProviderError('LLM provider request failed');
       }
+    };
+    let response = await post(0.3);
+    // groq's free tier answers 429 under burst load: wait as long as Groq asks
+    // (Retry-After), capped so one request never blocks for minutes, and give
+    // up after a bounded total wait so the caller can fall back or report.
+    let waited = 0;
+    for (let attempt = 0; attempt < 4 && response.status === 429; attempt += 1) {
+      const retryAfter = Number(response.headers.get('retry-after'));
+      const delay = Math.min(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** attempt, 15_000);
+      if (waited + delay > 30_000) break;
+      await sleep(delay);
+      waited += delay;
+      response = await post(0.2);
     }
     if (!response.ok) {
       resolvedModel = null;
@@ -164,6 +154,7 @@ export function createGroqLlmProvider({
     let response;
     try {
       response = await fetch(`${openrouterBaseUrl}/chat/completions`, {
+        signal: AbortSignal.timeout(60_000),
         method: 'POST',
         headers: {
           authorization: `Bearer ${openrouterApiKey}`,

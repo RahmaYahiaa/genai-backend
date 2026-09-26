@@ -86,6 +86,8 @@ const tutorSessionSchema = new mongoose.Schema(
       enum: Object.values(TUTOR_MODES),
       default: TUTOR_MODES.EXPLANATION,
     },
+    // Optional student-chosen name for the chat (null = derived in the UI).
+    title: { type: String, trim: true, maxlength: 120, default: null },
     status: { type: String, enum: ['active', 'closed'], default: 'active' },
     messages: { type: [tutorMessageSchema], default: [] },
     // Denormalized tenancy scope (null for personal learning spaces).
@@ -114,6 +116,7 @@ export function toPublicTutorSession(session) {
     courseId: session.courseId.toString(),
     topicId: session.topicId.toString(),
     mode: session.mode,
+    title: session.title ?? null,
     status: session.status,
     messages: (session.messages ?? []).map((message) => ({
       id: message._id.toString(),

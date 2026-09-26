@@ -36,5 +36,18 @@ export function createTutorRouter({ controller, middlewares, validators }) {
     controller.askQuestion,
   );
 
+  router.patch(
+    '/courses/:courseId/tutor/sessions/:tutorSessionId',
+    validators.tutorSessionIdParam,
+    validators.renameSession,
+    controller.renameSession,
+  );
+
+  router.delete(
+    '/courses/:courseId/tutor/sessions/:tutorSessionId',
+    validators.tutorSessionIdParam,
+    controller.deleteSession,
+  );
+
   return router;
 }

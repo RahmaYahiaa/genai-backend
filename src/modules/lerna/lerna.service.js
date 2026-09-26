@@ -1,8 +1,10 @@
-import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { config } from '../../config/index.js';
 import { ValidationError, NotFoundError } from '../../shared/errors/index.js';
 import Material from '../knowledge/material.model.js';
+import { createFileStorage } from '../knowledge/file-storage.js';
+
+const fileStorage = createFileStorage();
 import * as documentIndexRepository from './document-index.repository.js';
 import { toLernaStudentId } from './lerna.identity.js';
 
@@ -155,10 +157,11 @@ export function createLernaService({ lernaClient }) {
           'One of the selected materials has no stored file and cannot be indexed into the AI knowledge base.',
         );
       }
-      const absolute = path.resolve(config.uploads.dir ?? 'uploads', material.storageKey);
+      // Same resolution as the upload storage (relative to the repo root, not
+      // the process working directory).
       let fileBuffer;
       try {
-        fileBuffer = await fs.readFile(absolute);
+        fileBuffer = await fs.readFile(await fileStorage.requireMaterialFile(material.storageKey));
       } catch {
         throw new ValidationError('The stored file for a selected material could not be read for AI indexing.');
       }

@@ -19,6 +19,7 @@ import {
 
 // The last eight kinds are authored as one markdown text block ({"text"}),
 // the same shape the AI engine returns and the Study Tools page renders.
+const STRUCTURED_KINDS = ['summary', 'notes', 'flashcards', 'quiz', 'code', 'diagram', 'presentation'];
 const TEXT_KINDS = [
   'summary', 'notes', 'flashcards', 'quiz', 'code',
   'explanation', 'study_guide', 'coding_exercise', 'analogy', 'comparison', 'exam', 'practice', 'question_bank',
@@ -290,7 +291,7 @@ export function createLearningResourcesService({
   async function generate(user, courseId, data) {
     const course = await resolveCourseMember(user, courseId);
     const docCourseId = courseDocumentId(course);
-    const batchId = crypto.randomUUID().slice(0, 8);
+    const batchId = data.batchId ?? crypto.randomUUID().slice(0, 8);
     const focus = await learnerFocus(user, docCourseId);
     const results = [];
 
@@ -299,11 +300,33 @@ export function createLearningResourcesService({
     // client-side `unavailable` (LeRna has no real media provider either).
     // When the engine is down (or up without a working model) the local
     // generator below produces the same resources from course evidence.
+    //
+    // Kinds the UI renders from structured data (cards, quiz questions, SVG
+    // diagram, PPTX deck...) always use the local generator, because LeRna
+    // returns them as plain text. LeRna handles the free-text kinds, and any
+    // kind it fails on is regenerated locally in the same batch.
     if (
+      !data.localOnly &&
       config.lerna.enabled && lernaService?.isReady?.() &&
       (lernaService.canGenerate ? await lernaService.canGenerate() : true)
     ) {
-      return generateViaLerna(user, course, data, batchId, results);
+      const lernaKinds = data.kinds.filter((kind) => !STRUCTURED_KINDS.includes(kind));
+      const viaLerna = lernaKinds.length
+        ? await generateViaLerna(user, course, { ...data, kinds: lernaKinds }, batchId, [])
+        : { items: [] };
+      const failedKinds = [];
+      for (const item of viaLerna.items) {
+        if (item.status !== 'ready') {
+          failedKinds.push(item.kind);
+          await generatedResourceRepository.deleteById(item.id);
+        }
+      }
+      const localKinds = data.kinds.filter((kind) => STRUCTURED_KINDS.includes(kind) || failedKinds.includes(kind));
+      const local = localKinds.length
+        ? await generate(user, courseId, { ...data, kinds: localKinds, localOnly: true, batchId })
+        : { items: [] };
+      const byKind = new Map([...viaLerna.items.filter((item) => item.status === 'ready'), ...local.items].map((item) => [item.kind, item]));
+      return { batchId, items: data.kinds.map((kind) => byKind.get(kind)).filter(Boolean) };
     }
 
     // Evidence is fetched once and shared; kinds run through a small pool (a batch of

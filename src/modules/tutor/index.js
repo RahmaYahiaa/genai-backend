@@ -15,6 +15,7 @@ import {
   tutorSessionIdParamSchema,
   createTutorSessionSchema,
   sendTutorMessageSchema,
+  renameTutorSessionSchema,
 } from './tutor.schema.js';
 
 export { TutorSession as tutorSessionModel };
@@ -41,5 +42,6 @@ export const tutorRouter = createTutorRouter({
     tutorSessionIdParam: validateSchemas({ params: tutorSessionIdParamSchema }),
     createSession: validateSchemas({ body: createTutorSessionSchema }),
     sendMessage: validateSchemas({ body: sendTutorMessageSchema }),
+    renameSession: validateSchemas({ body: renameTutorSessionSchema }),
   },
 });

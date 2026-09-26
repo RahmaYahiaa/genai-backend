@@ -124,6 +124,18 @@ export function createTutorService({
     return toPublicTutorSession(session);
   }
 
+  async function renameSession(user, courseId, tutorSessionId, title) {
+    const { session } = await requireOwnedSession(user, courseId, tutorSessionId);
+    const updated = await tutorSessionRepository.setTitle(session._id, title?.trim() || null);
+    return toPublicTutorSession(updated);
+  }
+
+  async function deleteSession(user, courseId, tutorSessionId) {
+    const { session } = await requireOwnedSession(user, courseId, tutorSessionId);
+    await tutorSessionRepository.deleteById(session._id);
+    return { id: String(session._id), deleted: true };
+  }
+
   // --- Ask a grounded question (flow steps 12-13) ---
 
   async function askQuestion(user, courseId, tutorSessionId, data) {
@@ -155,9 +167,10 @@ export function createTutorService({
         // pipeline below (course material first, then trusted external sources),
         // so the student still gets a grounded answer.
         if (!(error instanceof AiServiceUnavailableError)) throw error;
-        lernaService.markUnavailable?.();
+        if (!error.engineUp) lernaService.markUnavailable?.();
         logger.warn({ err: error.message, courseId }, 'Tutor: AI engine unavailable, using local grounded pipeline');
-        studentRecorded = true; // askViaLerna records the question before calling the engine
+        // askViaLerna records the question before calling the engine
+        studentRecorded = !error.beforeRecord;
       }
     }
 
@@ -266,9 +279,21 @@ export function createTutorService({
    */
   async function askViaLerna({ user, course, session, data }) {
     const scoped = Array.isArray(data.materialIds) && data.materialIds.length > 0;
-    const documentIds = scoped
-      ? await lernaService.ensureDocumentIds(user, course, data.materialIds)
-      : null;
+    let documentIds = null;
+    if (scoped) {
+      try {
+        documentIds = await lernaService.ensureDocumentIds(user, course, data.materialIds);
+      } catch (error) {
+        // The chosen files could not be sent to the AI engine (file missing on
+        // disk, upload rejected...). They are indexed locally too, so answer
+        // through the local grounded pipeline instead of failing the chat.
+        logger.warn({ err: error.message }, 'Tutor: could not index selected files in the AI engine, using local pipeline');
+        const fallback = new AiServiceUnavailableError('Selected files could not be indexed in the AI engine');
+        fallback.beforeRecord = true;
+        fallback.engineUp = true;
+        throw fallback;
+      }
+    }
 
     // The student question is always recorded, even when the tutor abstains.
     await tutorSessionRepository.pushMessage(session._id, {
@@ -473,5 +498,5 @@ export function createTutorService({
     return shapedAnswer(updated, 'trusted_external');
   }
 
-  return { createSession, listSessions, getSession, askQuestion };
+  return { createSession, listSessions, getSession, askQuestion, renameSession, deleteSession };
 }

@@ -26,6 +26,10 @@ export const createTutorSessionSchema = z.object({
     .default(TUTOR_MODES.EXPLANATION),
 });
 
+export const renameTutorSessionSchema = z.object({
+  title: z.string().trim().max(120).nullable(),
+});
+
 export const sendTutorMessageSchema = z.object({
   content: z.string().trim().min(3, 'question content is required').max(4000),
   // Optional material scoping (EDUNation "Use materials" parity): when set,
