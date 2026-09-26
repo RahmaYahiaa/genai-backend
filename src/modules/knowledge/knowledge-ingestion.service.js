@@ -81,7 +81,9 @@ export function createKnowledgeIngestionService({
       // LeRna owns document indexing in bridge mode: local chunk embedding
       // for the suspended legacy retrieval path is skipped, and the material
       // is still stored + marked ready so the bridge can index it per student.
-      if (config.lerna.enabled) {
+      // When a local embedding provider exists the material is ALSO indexed
+      // locally, so the tutor's fallback pipeline can ground answers in it.
+      if (config.lerna.enabled && !embeddingProvider) {
         const ready = await materialRepository.updateById(material._id, {
           $set: { status: MATERIAL_STATUSES.READY, chunkCount: 0, embeddingModel: null },
         });
@@ -121,6 +123,19 @@ export function createKnowledgeIngestionService({
       });
       return toPublicMaterial(ready);
     } catch (error) {
+      // Bridge mode: the AI engine indexes the file itself, so a failed local
+      // (fallback) index must not mark the material as failed.
+      if (config.lerna.enabled) {
+        await materialChunkRepository.deleteByMaterialId(material._id).catch(() => null);
+        const ready = await materialRepository.updateById(material._id, {
+          $set: { status: MATERIAL_STATUSES.READY, chunkCount: 0, embeddingModel: null },
+        });
+        domainEvents.emit('MaterialsUploaded', {
+          courseId: ready.courseId.toString(),
+          materialId: material._id.toString(),
+        });
+        return toPublicMaterial(ready);
+      }
       // Mark the material failed without exposing provider internals.
       await materialRepository.updateById(material._id, {
         $set: { status: MATERIAL_STATUSES.FAILED, statusError: 'Material processing failed' },
@@ -245,7 +260,9 @@ export function createKnowledgeIngestionService({
     try {
       // LeRna owns indexing in bridge mode; local legacy chunk embedding is
       // suspended (the file is still stored; the bridge indexes it lazily).
-      if (config.lerna.enabled) {
+      // When a local embedding provider exists the material is ALSO indexed
+      // locally, so the tutor's fallback pipeline can ground answers in it.
+      if (config.lerna.enabled && !embeddingProvider) {
         const ready = await materialRepository.updateById(material._id, {
           $set: { status: MATERIAL_STATUSES.READY, chunkCount: 0, embeddingModel: null },
         });
@@ -285,6 +302,17 @@ export function createKnowledgeIngestionService({
       });
       return toPublicMaterial(ready);
     } catch (error) {
+      if (config.lerna.enabled) {
+        await materialChunkRepository.deleteByMaterialId(material._id).catch(() => null);
+        const ready = await materialRepository.updateById(material._id, {
+          $set: { status: MATERIAL_STATUSES.READY, chunkCount: 0, embeddingModel: null },
+        });
+        domainEvents.emit('MaterialsUploaded', {
+          courseId: ready.courseId.toString(),
+          materialId: material._id.toString(),
+        });
+        return toPublicMaterial(ready);
+      }
       await materialRepository.updateById(material._id, {
         $set: { status: MATERIAL_STATUSES.FAILED, statusError: 'Material processing failed' },
       });

@@ -32,4 +32,15 @@ export function createEmbeddingProvider(overrides = {}) {
 // LeRna bridge is enabled the legacy local AI path is suspended per the
 // integration mandate: no Gemini/Groq calls, no construction-time config
 // errors for keys that are intentionally absent in this mode.
-export const embeddingProvider = config.lerna.enabled ? null : createEmbeddingProvider();
+// With LeRna enabled the local provider is still built when a key exists, so
+// the tutor can fall back to the local grounded pipeline (course material ->
+// trusted external sources) if the AI engine is unreachable.
+function buildDefaultEmbeddingProvider() {
+  if (!config.lerna.enabled) return createEmbeddingProvider();
+  try {
+    return config.ai.geminiApiKey ? createEmbeddingProvider() : null;
+  } catch {
+    return null;
+  }
+}
+export const embeddingProvider = buildDefaultEmbeddingProvider();

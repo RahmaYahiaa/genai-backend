@@ -1,7 +1,9 @@
 import { config } from '../../config/index.js';
+import { logger } from '../../config/logger.js';
 import { GROUNDING_STATUSES, RETRIEVAL_SETTINGS } from '../../config/constants.js';
 import {
   AiProviderError,
+  AiServiceUnavailableError,
   InsufficientEvidenceError,
   NotFoundError,
   ValidationError,
@@ -20,6 +22,7 @@ const TUTOR_SYSTEM_PROMPT =
   'You are a course tutor for an academic learning platform. ' +
   'Answer ONLY from the trusted course material excerpts provided in the input. ' +
   'Every claim must come from those excerpts; if they are not enough, say so. ' +
+  'Speak directly to the student in a friendly teaching voice; never mention "excerpts", "chunks", "source 1" or the input - the app shows the sources separately. ' +
   'Answer in the same language as the student question (Arabic question -> Arabic answer with technical terms kept in English where standard). ' +
   'Respond with JSON only, matching exactly: ' +
   '{"answer":"<your grounded explanation>","usedChunkIds":["<ids of the excerpts you actually used>"]}';
@@ -28,6 +31,7 @@ const EXTERNAL_TUTOR_SYSTEM_PROMPT =
   'You are a course tutor for an academic learning platform. ' +
   'Answer ONLY from the trusted external academic sources provided in the input - never from your own memory. ' +
   'Every claim must come from those sources; if they are not enough, say so. ' +
+  'Speak directly to the student in a friendly teaching voice; never mention "excerpts", "chunks", "source 1" or the input - the app shows the sources separately. ' +
   'Answer in the same language as the student question (Arabic question -> Arabic answer with technical terms kept in English where standard). ' +
   'Respond with JSON only, matching exactly: ' +
   '{"answer":"<your grounded explanation>","usedSourceIndexes":[<1-based indexes of the sources you actually used>]}';
@@ -136,8 +140,25 @@ export function createTutorService({
     // integration is enabled the whole answer path (grounding, citation
     // discipline, trusted external discovery, abstention) runs inside LeRna.
     // Our session/persistence contract stays exactly the same.
-    if (config.lerna.enabled && lernaService?.isReady?.()) {
-      return askViaLerna({ user, course, session, data });
+    let studentRecorded = false;
+    const lernaUsable = config.lerna.enabled && lernaService?.isReady?.() &&
+      (lernaService.canGenerate ? await lernaService.canGenerate() : true);
+    if (config.lerna.enabled && !lernaUsable) {
+      logger.warn({ courseId }, 'Tutor: AI engine not ready, using local grounded pipeline');
+    }
+    if (lernaUsable) {
+      try {
+        return await askViaLerna({ user, course, session, data });
+      } catch (error) {
+        // An honest abstention from the AI engine stands. Only when the engine
+        // itself is unreachable / times out do we answer through the local
+        // pipeline below (course material first, then trusted external sources),
+        // so the student still gets a grounded answer.
+        if (!(error instanceof AiServiceUnavailableError)) throw error;
+        lernaService.markUnavailable?.();
+        logger.warn({ err: error.message, courseId }, 'Tutor: AI engine unavailable, using local grounded pipeline');
+        studentRecorded = true; // askViaLerna records the question before calling the engine
+      }
     }
 
     // Trusted retrieval first (RAG): courseId filter is applied inside the
@@ -145,19 +166,29 @@ export function createTutorService({
     // materialIds scope retrieval to the student's chosen files (EDUNation
     // "Use materials" parity); scoped questions never fall back to the web.
     const scoped = Array.isArray(data.materialIds) && data.materialIds.length > 0;
-    const { contexts } = await retrievalService.retrieveContext({
-      courseId: courseDocumentId(course),
-      query: data.content,
-      materialIds: scoped ? data.materialIds : null,
-    });
+    // A course with no (indexed) material for this question must not fail the
+    // request: an empty or failed retrieval simply means "no course evidence",
+    // which routes to trusted external sources below.
+    let contexts = [];
+    try {
+      ({ contexts } = await retrievalService.retrieveContext({
+        courseId: courseDocumentId(course),
+        query: data.content,
+        materialIds: scoped ? data.materialIds : null,
+      }));
+    } catch (error) {
+      logger.warn({ err: error.message, courseId }, 'Tutor: course material retrieval failed, treating as no course evidence');
+    }
 
     // The student question is always recorded, even when we refuse to answer.
-    await tutorSessionRepository.pushMessage(session._id, {
-      role: 'student',
-      content: data.content,
-      citations: [],
-      grounding: null,
-    });
+    if (!studentRecorded) {
+      await tutorSessionRepository.pushMessage(session._id, {
+        role: 'student',
+        content: data.content,
+        citations: [],
+        grounding: null,
+      });
+    }
 
     // General-mode fallback (EDUNation parity): when course material has no
     // sufficiently-matching evidence, try trusted external academic discovery
@@ -204,8 +235,16 @@ export function createTutorService({
         snippet: context.snippet,
       }));
     if (citations.length === 0) {
-      throw new AiProviderError(
-        'answer_tutor_question: AI answer was not grounded in trusted material',
+      // The retrieved course excerpts did not actually support an answer:
+      // same rule as "no material" -> trusted external sources (unless the
+      // student explicitly limited the tutor to specific files).
+      if (!scoped) {
+        return answerFromTrustedExternal({ user, course, session, topicTitle, question: data.content });
+      }
+      // Scoped to specific files and those files don't answer it: an honest
+      // "not in your selected files" (422), not a provider failure.
+      throw new InsufficientEvidenceError(
+        'The selected course materials do not contain enough information to answer this question',
       );
     }
 
@@ -330,10 +369,24 @@ export function createTutorService({
       );
     }
     const strategy = await planSourceStrategy({ query: question, topic: topicTitle, llmProvider });
-    const { state, sources } = await searchTrustedSources({
+    let { state, sources } = await searchTrustedSources({
       query: strategy.query,
       categories: strategy.categories,
     });
+    // Most trusted academic sources are in English: when a (e.g. Arabic)
+    // question finds nothing, retry once with the topic title plus any Latin
+    // technical terms from the question.
+    if (state !== 'ready' || sources.length === 0) {
+      const latinTerms = (question.match(/[A-Za-z][A-Za-z0-9+#.'-]*/g) ?? []).join(' ');
+      const retries = [
+        question,
+        [topicTitle !== 'Unknown topic' ? topicTitle : '', latinTerms].join(' ').trim(),
+      ].filter((q, i, all) => q && q !== strategy.query && all.indexOf(q) === i);
+      for (const retryQuery of retries) {
+        ({ state, sources } = await searchTrustedSources({ query: retryQuery, categories: strategy.categories }));
+        if (state === 'ready' && sources.length > 0) break;
+      }
+    }
     if (state !== 'ready' || sources.length === 0) {
       throw new InsufficientEvidenceError(
         'No trusted material in this course matches the question closely enough, and no trusted external academic source could answer it either',
@@ -343,7 +396,7 @@ export function createTutorService({
     const topSources = sources.slice(0, 3);
     const chunkRows = [];
     for (const [sourceIndex, source] of topSources.entries()) {
-      const chunks = chunkText(source.text).slice(0, 3);
+      const chunks = chunkText(source.text, { maxChars: config.chunk.maxChars, overlapChars: config.chunk.overlapChars }).slice(0, 3);
       for (const text of chunks) {
         chunkRows.push({ sourceIndex, source, text });
       }

@@ -42,7 +42,9 @@ export function createLernaService({ lernaClient }) {
     let existing = null;
     try {
       existing = await lernaClient.get(`/students/${studentId}/profile`, { studentId });
-    } catch {}
+    } catch {
+      // no profile yet: created below with defaults
+    }
     const body = {
       name: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email,
       course: courseCode ?? 'General',
@@ -113,6 +115,7 @@ export function createLernaService({ lernaClient }) {
 
     const response = await lernaClient.post('/tutor/chat', {
       studentId,
+      timeoutMs: config.lerna.tutorTimeoutMs,
       body: {
         student_id: studentId,
         course_id: courseCode,
@@ -224,6 +227,28 @@ export function createLernaService({ lernaClient }) {
     return lernaClient.get('/health');
   }
 
+  // Fast availability probe (short timeout, cached) so callers with a local
+  // fallback don't make the student wait for the full request timeout when
+  // the engine is down, or when it is up but has no working model.
+  let availability = { value: null, at: 0 };
+  async function canGenerate() {
+    const now = Date.now();
+    const ttl = availability.value ? 60_000 : 15_000;
+    if (availability.value !== null && now - availability.at < ttl) return availability.value;
+    let value;
+    try {
+      const status = await lernaClient.get('/health', { timeoutMs: config.lerna.probeTimeoutMs });
+      value = status?.ai_status?.real_generation_ready !== false;
+    } catch {
+      value = false;
+    }
+    availability = { value, at: now };
+    return value;
+  }
+  function markUnavailable() {
+    availability = { value: false, at: Date.now() };
+  }
+
   async function capabilities() {
     return lernaClient.get('/capabilities');
   }
@@ -240,6 +265,8 @@ export function createLernaService({ lernaClient }) {
     recordConceptReview,
     downloadArtifact,
     health,
+    canGenerate,
+    markUnavailable,
     capabilities,
   };
 }

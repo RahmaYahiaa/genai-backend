@@ -62,7 +62,7 @@ const envSchema = z.object({
 
   // Trusted external academic discovery (EDUNation parity). Disabled without
   // a TAVILY key: callers degrade to an explicit "unavailable" state.
-  WEB_SEARCH_ENABLED: z.enum(['true', 'false']).default('false'),
+  WEB_SEARCH_ENABLED: z.enum(['true', 'false']).default('true'),
   TAVILY_API_KEY: z.string().default(''),
   TRUST_THRESHOLD: z.coerce.number().min(0).max(1).default(0.8),
 
@@ -74,6 +74,9 @@ const envSchema = z.object({
   LERNA_ENABLED: z.enum(['true', 'false']).default('false'),
   LERNA_API_URL: z.string().min(1).default('http://127.0.0.1:8000'),
   LERNA_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
+  // Tutor chat has a local fallback, so it gives up sooner than other AI calls.
+  LERNA_TUTOR_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  LERNA_PROBE_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
 
   CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(8000).default(1200),
   CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).max(1000).default(150),
@@ -172,7 +175,8 @@ export const config = Object.freeze({
   },
 
   webSearch: {
-    enabled: rawConfig.WEB_SEARCH_ENABLED === 'true',
+    // On by default whenever a Tavily key is configured; set WEB_SEARCH_ENABLED=false to opt out.
+    enabled: rawConfig.WEB_SEARCH_ENABLED !== 'false',
     tavilyApiKey: rawConfig.TAVILY_API_KEY,
     trustThreshold: rawConfig.TRUST_THRESHOLD,
   },
@@ -185,6 +189,8 @@ export const config = Object.freeze({
     enabled: rawConfig.LERNA_ENABLED === 'true',
     apiUrl: rawConfig.LERNA_API_URL.replace(/\/+$/, ''),
     timeoutMs: rawConfig.LERNA_TIMEOUT_MS,
+    tutorTimeoutMs: rawConfig.LERNA_TUTOR_TIMEOUT_MS,
+    probeTimeoutMs: rawConfig.LERNA_PROBE_TIMEOUT_MS,
   },
 
   rateLimit: {

@@ -25,12 +25,13 @@ function toContext(row) {
  * "insufficient evidence" response instead of answering ungrounded.
  */
 export function createRetrievalService({ embeddingProvider, materialChunkRepository }) {
-  async function retrieveContext({ courseId, query, topK = RETRIEVAL_SETTINGS.TOP_K }) {
+  async function retrieveContext({ courseId, query, topK = RETRIEVAL_SETTINGS.TOP_K, materialIds = null }) {
     const [queryVector] = await embeddingProvider.embed([query]);
     const rows = await materialChunkRepository.vectorSearch({
       courseId,
       queryVector,
       topK,
+      materialIds,
     });
     const contexts = rows.filter((row) => row.score >= RETRIEVAL_SETTINGS.MIN_SCORE).map(toContext);
     return { contexts, topScore: contexts.length > 0 ? contexts[0].score : 0 };

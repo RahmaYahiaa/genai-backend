@@ -46,7 +46,17 @@ export const listResourcesQuerySchema = z.object({
 
 // --- Mandatory Zod contracts for LLM outputs (never trust the model) ---
 
+const markdownResource = z.object({ text: z.string().trim().min(40).max(20000) });
+
 export const llmTextResourceSchemas = {
+  explanation: markdownResource,
+  study_guide: markdownResource,
+  coding_exercise: markdownResource,
+  analogy: markdownResource,
+  comparison: markdownResource,
+  exam: markdownResource,
+  practice: markdownResource,
+  question_bank: markdownResource,
   summary: z.object({
     title: z.string().min(3).max(200),
     points: z.array(z.string().min(3).max(400)).min(3).max(8),
@@ -75,18 +85,21 @@ export const llmTextResourceSchemas = {
       .min(4)
       .max(12),
   }),
+  // Tolerant of harmless model variance (longer rationale, numeric strings,
+  // a few extra questions) while still enforcing a usable quiz structure.
   quiz: z.object({
     questions: z
       .array(
         z.object({
-          question: z.string().min(5).max(400),
-          options: z.array(z.string().min(1).max(200)).length(4),
-          answerIndex: z.number().int().min(0).max(3),
-          why: z.string().min(3).max(400).optional(),
+          question: z.string().min(5).max(1000),
+          options: z.array(z.string().min(1).max(400)).length(4),
+          answerIndex: z.coerce.number().int().min(0).max(3),
+          why: z.string().max(1500).optional().nullable(),
         }),
       )
       .min(3)
-      .max(10),
+      .max(15)
+      .transform((questions) => questions.slice(0, 10)),
   }),
   code: z.object({
     language: z.string().min(1).max(30),

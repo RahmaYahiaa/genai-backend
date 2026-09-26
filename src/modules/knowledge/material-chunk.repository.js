@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import MaterialChunk, { toPublicChunk } from './material-chunk.model.js';
 import { config } from '../../config/index.js';
 import { cosineSimilarity } from '../../shared/math/vector-math.js';
@@ -34,11 +35,16 @@ let atlasUnavailable = false;
  *
  * Returns [{ chunk, score }] sorted by score desc, embedding stripped.
  */
-export async function vectorSearch({ courseId, queryVector, topK }) {
+export async function vectorSearch({ courseId, queryVector, topK, materialIds = null }) {
   const mode = config.vector.searchMode;
   const filter = { courseId };
+  // Student-scoped retrieval ("use only these files"): the Atlas index only
+  // declares courseId as a filter field, so scoped searches use the exact
+  // scan restricted to the chosen materials (a small candidate set).
+  const scoped = Array.isArray(materialIds) && materialIds.length > 0;
+  if (scoped) filter.materialId = { $in: materialIds.map((id) => new mongoose.Types.ObjectId(String(id))) };
 
-  if (!atlasUnavailable && mode !== 'fallback') {
+  if (!scoped && !atlasUnavailable && mode !== 'fallback') {
     try {
       const results = await MaterialChunk.aggregate([
         {

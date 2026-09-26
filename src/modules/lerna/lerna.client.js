@@ -29,6 +29,9 @@ export function createLernaClient() {
       try {
         response = await fetch(`${baseUrl}${path}`, init);
       } catch (networkError) {
+        if (networkError?.name === 'AbortError') {
+          throw new AiServiceUnavailableError('The AI service timed out while processing the request');
+        }
         throw new AiServiceUnavailableError(
           'The AI service could not be reached',
           [{ message: networkError?.cause?.message ?? networkError.message }],

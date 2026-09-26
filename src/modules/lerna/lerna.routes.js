@@ -1,3 +1,4 @@
+import { buildLocalLearningState } from './local-learning.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../../config/index.js';
@@ -35,8 +36,17 @@ export function createLernaController({ lernaService }) {
   }
 
   async function getLearning(req, res) {
-    requireEnabled();
-    const learning = await lernaService.getLearningState(req.user);
+    // AI engine first; when it is unreachable or has no mastery yet, use the
+    // platform's own evidence so "My Progress" reflects the student's answers.
+    let learning = null;
+    if (config.lerna.enabled) {
+      learning = await lernaService.getLearningState(req.user).catch(() => null);
+    }
+    const engineHasMastery = Object.keys(learning?.profile?.concept_mastery ?? {}).length > 0;
+    if (!engineHasMastery) {
+      const local = await buildLocalLearningState(req.user);
+      learning = { ...local, review_queue: learning?.review_queue ?? [] };
+    }
     res.json({ success: true, data: learning });
   }
 

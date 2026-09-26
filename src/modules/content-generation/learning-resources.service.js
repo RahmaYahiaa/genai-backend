@@ -1,3 +1,4 @@
+import { logger } from '../../config/logger.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -16,7 +17,13 @@ import {
   llmTextResourceSchemas,
 } from './learning-resources.schema.js';
 
-const TEXT_KINDS = ['summary', 'notes', 'flashcards', 'quiz', 'code'];
+// The last eight kinds are authored as one markdown text block ({"text"}),
+// the same shape the AI engine returns and the Study Tools page renders.
+const TEXT_KINDS = [
+  'summary', 'notes', 'flashcards', 'quiz', 'code',
+  'explanation', 'study_guide', 'coding_exercise', 'analogy', 'comparison', 'exam', 'practice', 'question_bank',
+];
+const STUDY_TOOLS_CONCURRENCY = 1;
 const MEDIA_KINDS = ['image', 'audio', 'video'];
 const KIND_INSTRUCTIONS = {
   summary:
@@ -29,7 +36,59 @@ const KIND_INSTRUCTIONS = {
     'A practice quiz: {"questions":[{"question":string,"options":[exactly 4],"answerIndex":0-3,"why":string}]} with 3-10 questions.',
   code:
     'A complete, runnable code example: {"language":string,"code":complete runnable code,"explanation":string}. The code must be self-contained and syntactically valid.',
+  explanation:
+    'A clear step-by-step explanation of the topic for a student, with a small example. Return {"text": markdown}.',
+  study_guide:
+    'A study guide: key concepts, what to memorize, common mistakes and a short self-check list. Return {"text": markdown}.',
+  coding_exercise:
+    'One coding exercise on the topic: problem statement, input/output example, hints, then a full solution in a separate section. Return {"text": markdown}.',
+  analogy:
+    'Two or three everyday analogies that make the topic intuitive, each followed by where the analogy breaks down. Return {"text": markdown}.',
+  comparison:
+    'A comparison of the main approaches/variants within the topic as a markdown table plus a short "when to use which". Return {"text": markdown}.',
+  exam:
+    'A model exam: 6-10 mixed questions (short answer and problem solving) with marks, followed by a model answer key. Return {"text": markdown}.',
+  practice:
+    'A practice set of 5-8 graded questions from easy to hard, each with its answer. Return {"text": markdown}.',
+  question_bank:
+    'A question bank of 10-15 varied questions grouped by difficulty, with brief answers. Return {"text": markdown}.',
 };
+
+// Models sometimes rename the top-level array ("quiz", "items") or wrap the
+// payload in one extra object; map those onto the documented contract
+// before validation instead of discarding otherwise good content.
+const ARRAY_KEY = { quiz: 'questions', flashcards: 'cards', notes: 'sections', summary: 'points' };
+function normalizeShape(kind, raw) {
+  let value = raw;
+  // Echo of the request envelope: {"topic", "resource": "<the JSON as a string>"}.
+  if (value && typeof value === 'object' && typeof value.resource === 'string') {
+    try {
+      const inner = JSON.parse(value.resource);
+      if (inner && typeof inner === 'object') value = inner;
+    } catch {
+      // not JSON: leave as is
+    }
+  } else if (value && typeof value === 'object' && value.resource && typeof value.resource === 'object') {
+    value = value.resource;
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && value[keys[0]] && typeof value[keys[0]] === 'object' && !Array.isArray(value[keys[0]])) {
+      value = value[keys[0]];
+    }
+  }
+  const key = ARRAY_KEY[kind];
+  if (Array.isArray(value) && key) return { [key]: value };
+  if (key && value && typeof value === 'object' && !Array.isArray(value[key])) {
+    const firstArray = Object.values(value).find((item) => Array.isArray(item));
+    if (firstArray) return { ...value, [key]: firstArray };
+  }
+  if (!ARRAY_KEY[kind] && value && typeof value === 'object' && typeof value.text !== 'string') {
+    const firstString = Object.values(value).find((item) => typeof item === 'string' && item.length > 40);
+    if (firstString && llmTextResourceSchemas[kind]?.shape?.text) return { text: firstString };
+  }
+  return value;
+}
 
 /**
  * Learning-resource generation (EDUNation "Study Tools" parity). Per-kind
@@ -137,19 +196,26 @@ export function createLearningResourcesService({
       (focus.length > 0
         ? ` Prioritize these learner weak points: ${focus.join(', ')}.`
         : '') +
-      ' Respond with JSON only.';
+      ' Respond with JSON only: return ONLY the resource object described in "resource" (not the request fields).';
     const user = JSON.stringify({
       topic,
       resource: KIND_INSTRUCTIONS[kind],
       evidence: evidenceText || null,
     });
-    const raw = await llmProvider.completeJson({
-      task: `generate_${kind}`,
-      system,
-      user,
-    });
-    const parsed = llmTextResourceSchemas[kind].safeParse(raw);
+    // One retry: JSON-mode providers occasionally reject/garble a long output.
+    let parsed = { success: false };
+    let lastRaw = null;
+    for (let attempt = 0; attempt < 2 && !parsed.success; attempt += 1) {
+      try {
+        const raw = await llmProvider.completeJson({ task: `generate_${kind}`, system, user });
+        lastRaw = raw;
+        parsed = llmTextResourceSchemas[kind].safeParse(normalizeShape(kind, raw));
+      } catch (error) {
+        if (attempt === 1) throw error;
+      }
+    }
     if (!parsed.success) {
+      logger.warn({ kind, issues: parsed.error?.issues?.slice(0, 2), sample: JSON.stringify(lastRaw ?? null).slice(0, 400) }, 'Study tools: model output failed validation');
       throw new AiProviderError(`generate_${kind}: AI provider returned invalid output`);
     }
     return { type: 'text', content: parsed.data, usedModel: true };
@@ -231,11 +297,21 @@ export function createLearningResourcesService({
     // LeRna (Academic OS) is the AI source of truth once enabled: the whole
     // 15-kind generation contract runs there; media kinds remain an honest
     // client-side `unavailable` (LeRna has no real media provider either).
-    if (config.lerna.enabled && lernaService?.isReady?.()) {
+    // When the engine is down (or up without a working model) the local
+    // generator below produces the same resources from course evidence.
+    if (
+      config.lerna.enabled && lernaService?.isReady?.() &&
+      (lernaService.canGenerate ? await lernaService.canGenerate() : true)
+    ) {
       return generateViaLerna(user, course, data, batchId, results);
     }
 
-    for (const kind of data.kinds) {
+    // Evidence is fetched once and shared; kinds run through a small pool (a batch of
+    // Groq rate limits (tokens/minute) make parallel calls slower, so the pool
+    // size is 1 by default; results keep request order.
+    let evidencePromise = null;
+    const getEvidence = () => (evidencePromise ??= gatherEvidence(docCourseId, data.topic));
+    const runKind = async (kind) => {
       let record;
       let produced = null; // set only when the LLM truly produced the content
       try {
@@ -247,7 +323,7 @@ export function createLearningResourcesService({
             knowledgeSource: 'none',
           };
         } else {
-          const { knowledgeSource, evidenceText } = await gatherEvidence(docCourseId, data.topic);
+          const { knowledgeSource, evidenceText } = await getEvidence();
           if (TEXT_KINDS.includes(kind)) {
             produced = await generateTextKind(kind, {
               topic: data.topic,
@@ -284,6 +360,7 @@ export function createLearningResourcesService({
           };
         }
       } catch (error) {
+        logger.warn({ kind, err: error.message, details: error.details }, 'Study tools: local generation failed');
         // Per-kind isolation with an HONEST failure state (never fake).
         record = {
           status: 'unavailable',
@@ -307,8 +384,18 @@ export function createLearningResourcesService({
         isPersonal: Boolean(course.isPersonal),
         ...record,
       });
-      results.push(toPublicResource(doc));
-    }
+      return toPublicResource(doc);
+    };
+    const ordered = new Array(data.kinds.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < data.kinds.length) {
+        const index = next++;
+        ordered[index] = await runKind(data.kinds[index]);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(STUDY_TOOLS_CONCURRENCY, data.kinds.length) }, worker));
+    results.push(...ordered);
     return { batchId, items: results };
   }
 
