@@ -82,6 +82,8 @@ export function toPublicResource(doc) {
   return {
     id: doc._id.toString(),
     courseId: doc.courseId.toString(),
+    // Owner id lets clients double-check that a list only holds the caller's own items.
+    userId: doc.userId ? doc.userId.toString() : null,
     topic: doc.topic,
     language: doc.language,
     kind: doc.kind,
