@@ -13,7 +13,7 @@ export const practiceSessionIdParamSchema = z.object({
 
 export const createPracticeSessionSchema = z.object({
   topicId: objectIdField('topicId'),
-  questionsCount: z.coerce.number().int().min(1).max(5).default(3),
+  questionsCount: z.coerce.number().int().min(1).max(10).default(3),
 });
 
 export const submitPracticeAnswerSchema = z.object({

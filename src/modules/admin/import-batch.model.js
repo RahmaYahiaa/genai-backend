@@ -8,6 +8,7 @@ const rowSchema = new mongoose.Schema(
     email: { type: String, lowercase: true, trim: true, default: '' },
     role: { type: String, trim: true, default: '' },
     courseCodes: { type: [String], default: [] },
+    studyYear: { type: Number, min: 1, max: 4, default: null },
     verdict: { type: String, enum: ['new', 'existing', 'error'], required: true },
     errorReason: {
       en: { type: String, default: null, maxlength: 300 },

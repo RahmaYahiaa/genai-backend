@@ -13,7 +13,7 @@ export const diagnosticIdParamSchema = z.object({
 
 export const startDiagnosticSchema = z.object({
   topicIds: z.array(objectIdField('topicIds')).min(1).max(50).optional(),
-  questionsPerTopic: z.coerce.number().int().min(1).max(5).default(2),
+  questionsPerTopic: z.coerce.number().int().min(1).max(10).default(2),
 });
 
 export const submitAnswerSchema = z

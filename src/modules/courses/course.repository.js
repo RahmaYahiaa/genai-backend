@@ -96,6 +96,11 @@ export async function hasStaffMember(courseId, userId) {
   return Boolean(course);
 }
 
+export async function findCodesByIds(courseIds) {
+  if (!courseIds.length) return [];
+  return Course.find({ _id: { $in: courseIds } }, { code: 1 }).lean();
+}
+
 export async function listInstitutionCourses({ institutionId, q, skip, limit, year }) {
   const filter = {
     institutionId,

@@ -35,6 +35,7 @@ export const adminRouter = createAdminRouter({
     setActive: validateSchemas({ body: adminSchemas.setActive }),
     changeRole: validateSchemas({ body: adminSchemas.changeRole }),
     academicNumber: validateSchemas({ body: adminSchemas.academicNumber }),
+    studyYear: validateSchemas({ body: adminSchemas.studyYear }),
     createOfficer: validateSchemas({ body: adminSchemas.createOfficer }),
     template: validateSchemas({ body: adminSchemas.template }),
     scopes: validateSchemas({ body: adminSchemas.scopes }),

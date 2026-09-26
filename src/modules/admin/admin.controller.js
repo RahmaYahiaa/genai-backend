@@ -53,6 +53,15 @@ export function createAdminController({ adminService }) {
     }
   }
 
+  async function setStudyYear(req, res, next) {
+    try {
+      const data = await adminService.setStudyYear(req.user, req.params.userId, req.body.studyYear);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async function createOfficer(req, res, next) {
     try {
       const data = await adminService.createOfficer(req.user, req.body);
@@ -254,6 +263,7 @@ export function createAdminController({ adminService }) {
     setUserActive,
     changeUserRole,
     setAcademicNumber,
+    setStudyYear,
     createOfficer,
     applyOfficerTemplate,
     setOfficerScopes,

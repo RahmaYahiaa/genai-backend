@@ -36,5 +36,10 @@ export function createLearningResourcesController({ learningResourcesService }) 
     res.send(artifact.buffer);
   });
 
-  return { generate, list, download };
+  const remove = asyncHandler(async (req, res) => {
+    const data = await learningResourcesService.removeMine(req.user, req.validated.params.resourceId);
+    sendSuccess(res, { data });
+  });
+
+  return { generate, list, download, remove };
 }

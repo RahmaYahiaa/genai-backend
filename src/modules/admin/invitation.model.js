@@ -9,6 +9,7 @@ const invitationSchema = new mongoose.Schema(
     lastName: { type: String, required: true, trim: true, maxlength: 100 },
     role: { type: String, enum: ['student', 'instructor'], required: true },
     courseIds: { type: [mongoose.Schema.Types.ObjectId], ref: 'Course', default: [] },
+    studyYear: { type: Number, min: 1, max: 4, default: null },
     status: { type: String, enum: ['pending', 'accepted', 'revoked'], default: 'pending', index: true },
     enrolledUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     acceptedAt: { type: Date, default: null },

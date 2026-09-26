@@ -556,8 +556,25 @@ export function createCoursesService({
    * and request state so the UI can render join actions correctly.
    */
   function courseYearOf(code) {
-    const match = /([1-6])\d{2}/.exec(String(code ?? ''));
+    const match = /([1-4])\d{2}/.exec(String(code ?? ''));
     return match ? Number(match[1]) : null;
+  }
+
+  /**
+   * The student's study year: the admin-set value, otherwise the highest year
+   * among the courses they are already enrolled in. null when unknown.
+   */
+  async function studentYearOf(user, enrolledCourseIds) {
+    if (user.studyYear) return Number(user.studyYear);
+    const courses = await courseRepository.findCodesByIds(enrolledCourseIds);
+    const years = courses.map((course) => courseYearOf(course.code)).filter(Boolean);
+    return years.length ? Math.max(...years) : null;
+  }
+
+  // Direct enrollment only for a course of the student's own year; anything
+  // else (other year, unknown year) goes through an admin-approved request.
+  function canSelfEnroll(studentYear, courseYear) {
+    return studentYear != null && courseYear != null && studentYear === courseYear;
   }
 
   async function listCourseCatalog(user, { search, page, limit, year }) {
@@ -575,16 +592,19 @@ export function createCoursesService({
       enrollmentRequestRepository.listByStudent(user.id),
     ]);
     const requests = myRequests.items;
+    const studentYear = await studentYearOf(user, enrolledCourseIds);
     const enrolledSet = new Set(enrolledCourseIds.map((id) => String(id)));
     const statusByCourse = new Map(
       requests.map((request) => [String(request.courseId?._id ?? request.courseId), request.status]),
     );
     return {
+      studentYear,
       items: result.items.map((course) => ({
         id: course._id.toString(),
         title: course.title,
         code: course.code ?? null,
         year: courseYearOf(course.code),
+        canSelfEnroll: canSelfEnroll(studentYear, courseYearOf(course.code)),
         description: course.description ?? null,
         isActive: course.isActive,
         enrolled: enrolledSet.has(course._id.toString()),
@@ -605,6 +625,12 @@ export function createCoursesService({
     }
     if (await enrollmentRepository.exists(user.id, course._id)) {
       throw new ConflictError('Already enrolled in this course');
+    }
+    const studentYear = await studentYearOf(user, await enrollmentRepository.listCourseIds(user.id));
+    if (!canSelfEnroll(studentYear, courseYearOf(course.code))) {
+      throw new ForbiddenError(
+        'This course is not in your study year - send a request to the admin (هذا المقرر ليس في سنتك الدراسية - أرسل طلبًا للإدارة)',
+      );
     }
     const existing = await enrollmentRequestRepository.findByStudentAndCourse(user.id, course._id);
     if (existing?.status === ENROLLMENT_REQUEST_STATUSES.PENDING) {

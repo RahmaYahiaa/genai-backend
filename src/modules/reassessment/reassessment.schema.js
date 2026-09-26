@@ -12,7 +12,7 @@ export const reassessmentIdParamSchema = z.object({
 
 export const createReassessmentSchema = z.object({
   topicId: objectIdField('topicId'),
-  questionsCount: z.coerce.number().int().min(1).max(5).default(2),
+  questionsCount: z.coerce.number().int().min(1).max(10).default(2),
 });
 
 export const submitReassessmentAnswerSchema = z.object({

@@ -28,5 +28,11 @@ export function createLearningResourcesRouter({ controller, middlewares, validat
     controller.download,
   );
 
+  router.delete(
+    '/learning-resources/:resourceId',
+    validators.resourceIdParam,
+    controller.remove,
+  );
+
   return router;
 }

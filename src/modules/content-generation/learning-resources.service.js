@@ -545,7 +545,23 @@ export function createLearningResourcesService({
     };
   }
 
-  return { generate, listMine, downloadArtifact };
+  async function removeMine(user, resourceId) {
+    const resource = await generatedResourceRepository.findById(resourceId);
+    if (!resource || String(resource.userId) !== String(user.id)) {
+      throw new NotFoundError('Resource not found');
+    }
+    if (resource.artifactPath) {
+      const root = path.resolve(config.artifacts.dir);
+      const absolute = path.resolve(root, resource.artifactPath);
+      if (absolute.startsWith(`${root}${path.sep}`)) {
+        await fs.rm(absolute, { force: true });
+      }
+    }
+    await generatedResourceRepository.deleteById(resource._id);
+    return { id: String(resource._id), deleted: true };
+  }
+
+  return { generate, listMine, downloadArtifact, removeMine };
 }
 
 export function createLearningResourceRepositoryAdapter(repository) {

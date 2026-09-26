@@ -50,29 +50,68 @@ export function createLernaController({ lernaService }) {
     res.json({ success: true, data: learning });
   }
 
+  // Spaced-repetition reviews live only in the AI engine. The queue is empty
+  // when the engine is down, so a failure here is reported, not faked.
   async function recordReview(req, res) {
     requireEnabled();
-    const result = await lernaService.recordConceptReview(req.user, req.body.concept, req.body.remembered);
-    res.json({ success: true, data: result });
+    try {
+      const result = await lernaService.recordConceptReview(req.user, req.body.concept, req.body.remembered);
+      res.json({ success: true, data: { recorded: true, ...result } });
+    } catch {
+      res.json({ success: true, data: { recorded: false } });
+    }
+  }
+
+  // Preferences: engine profile first; otherwise the platform's own account
+  // language plus locally computed mastery, marked with source.
+  async function localPreferences(user) {
+    const local = await buildLocalLearningState(user).catch(() => null);
+    return {
+      studentId: user.id,
+      name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+      course: null,
+      preferredLanguage: user.languagePreference ?? 'en',
+      learningPreference: null,
+      conceptMastery: local?.profile?.concept_mastery ?? {},
+      weakConcepts: local?.profile?.weak_concepts ?? [],
+      unknownConcepts: [],
+      strengths: [],
+      source: 'platform_evidence',
+    };
   }
 
   async function getPreferences(req, res) {
-    requireEnabled();
-    const preferences = await lernaService.getPreferences(req.user);
-    res.json({ success: true, data: preferences });
+    let preferences = null;
+    if (config.lerna.enabled) {
+      preferences = await lernaService.getPreferences(req.user).catch(() => null);
+    }
+    res.json({ success: true, data: preferences ?? (await localPreferences(req.user)) });
   }
 
   async function updatePreferences(req, res) {
-    requireEnabled();
-    const preferences = await lernaService.updatePreferences(req.user, req.body);
-    res.json({ success: true, data: preferences });
+    if (config.lerna.enabled) {
+      const updated = await lernaService.updatePreferences(req.user, req.body).catch(() => null);
+      if (updated) return res.json({ success: true, data: updated });
+    }
+    // Engine unavailable: persist what the platform itself owns (language).
+    if (req.body.preferredLanguage === 'en' || req.body.preferredLanguage === 'ar') {
+      const { default: User } = await import('../auth/user.model.js');
+      await User.updateOne({ _id: req.user.id }, { $set: { languagePreference: req.body.preferredLanguage } });
+      req.user.languagePreference = req.body.preferredLanguage;
+    }
+    return res.json({ success: true, data: await localPreferences(req.user) });
   }
 
   async function health(req, res) {
-    requireEnabled();
-    const status = await lernaService.health();
-    const caps = await lernaService.capabilities().catch(() => null);
-    res.json({ success: true, data: { ...status, capabilities: caps } });
+    if (!config.lerna.enabled) {
+      return res.json({ success: true, data: { status: 'disabled', fallback: 'platform' } });
+    }
+    const status = await lernaService.health().catch(() => null);
+    const caps = status ? await lernaService.capabilities().catch(() => null) : null;
+    return res.json({
+      success: true,
+      data: status ? { ...status, capabilities: caps } : { status: 'unreachable', fallback: 'platform' },
+    });
   }
 
   return { getLearning, recordReview, getPreferences, updatePreferences, health };

@@ -10,6 +10,7 @@ export function createAdminRouter({ controller, middlewares, guards, validators 
   router.patch('/users/:userId/active', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.USERS_MANAGE), validators.userIdParam, validators.setActive, controller.setUserActive);
   router.patch('/users/:userId/role', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.USERS_MANAGE), validators.userIdParam, validators.changeRole, controller.changeUserRole);
   router.patch('/users/:userId/academic-number', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.USERS_MANAGE), validators.userIdParam, validators.academicNumber, controller.setAcademicNumber);
+  router.patch('/users/:userId/study-year', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.USERS_MANAGE), validators.userIdParam, validators.studyYear, controller.setStudyYear);
 
   router.get('/officers', guards.authenticate, middlewares.requireSuperAdmin, controller.listOfficers);
   router.post('/officers', guards.authenticate, middlewares.requireSuperAdmin, validators.createOfficer, controller.createOfficer);

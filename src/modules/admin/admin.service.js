@@ -110,6 +110,14 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     return { ...target, academicNumber: academicNumber?.trim() || null };
   }
 
+  async function setStudyYear(actor, targetId, studyYear) {
+    const target = await requireTarget(targetId, actor.institutionId);
+    if (target.role !== ROLES.STUDENT) throw new ValidationError('Study year applies to students only');
+    const value = studyYear == null ? null : Number(studyYear);
+    await adminRepository.setStudyYear(targetId, value);
+    return { ...target, studyYear: value };
+  }
+
   async function createOfficer(actor, { firstName, lastName, email, templateId, keys }) {
     const normalizedEmail = email.trim().toLowerCase();
     const existing = await adminRepository.findUserByEmail(normalizedEmail);
@@ -204,7 +212,13 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       const lastName = String(raw.lastName ?? '').trim();
       const role = String(raw.role ?? '').trim().toLowerCase();
       const courseCodes = (Array.isArray(raw.courseCodes) ? raw.courseCodes : []).map((c) => String(c).trim().toUpperCase()).filter(Boolean);
-      const base = { row: i + 2, firstName, lastName, email, role, courseCodes };
+      const yearText = String(raw.studyYear ?? '').trim();
+      const studyYear = /^[1-4]$/.test(yearText) ? Number(yearText) : null;
+      const base = { row: i + 2, firstName, lastName, email, role, courseCodes, studyYear };
+      if (yearText && studyYear === null) {
+        staged.push({ ...base, verdict: 'error', errorReason: { en: 'Study year must be 1 to 4', ar: 'السنة الدراسية لازم تكون من 1 إلى 4' } });
+        continue;
+      }
       if (!firstName || !lastName || !email || (role !== 'student' && role !== 'instructor')) {
         staged.push({ ...base, verdict: 'error', errorReason: { en: 'Missing required data or invalid role', ar: 'بيانات ناقصة أو دور غير صحيح' } });
         continue;
@@ -288,11 +302,13 @@ export function createAdminService({ adminRepository, coursesService, enrollment
             lastName: row.lastName,
             role: row.role,
             courseIds,
+            studyYear: row.role === 'student' ? (row.studyYear ?? null) : null,
             status: 'pending',
           });
           newCount += 1;
           continue;
         }
+        if (row.role === 'student' && row.studyYear) await adminRepository.setStudyYear(user._id, row.studyYear);
         await enrollUserInCourseIds(actorForEnrollment, user._id.toString(), courseIds);
         await adminRepository.insertInvitation({
           institutionId: actor.institutionId,
@@ -317,6 +333,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
         lastName: row.lastName,
         role: row.role,
         courseIds,
+        studyYear: row.role === 'student' ? (row.studyYear ?? null) : null,
         status: 'pending',
       });
       newCount += 1;
@@ -375,6 +392,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     for (const invitation of pending) {
       try {
         const actor = await systemActor(invitation.institutionId);
+        if (invitation.studyYear) await adminRepository.setStudyYear(user._id ?? user.id, invitation.studyYear);
         await enrollUserInCourseIds(actor, (user._id ?? user.id).toString(), invitation.courseIds ?? []);
         await adminRepository.markInvitationAccepted(invitation._id, user._id ?? user.id);
         accepted += 1;
@@ -793,6 +811,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     setUserActive,
     changeUserRole,
     setAcademicNumber,
+    setStudyYear,
     createOfficer,
     setOfficerScopes,
     applyOfficerTemplate,

@@ -38,6 +38,9 @@ const userSchema = new mongoose.Schema(
     // FR-ADM-04 — optional; academic number for students, employee number for
     // staff. Deactivated-flag manual verification never blocks login.
     academicNumber: { type: String, trim: true, maxlength: 40, default: null },
+    // Study year for institutional students (computer-science faculties: 1-4).
+    // Set by the admin (bulk import or per user); null when unknown.
+    studyYear: { type: Number, min: 1, max: 4, default: null },
     // Incremented on logout to revoke every previously issued token instantly.
     tokenVersion: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date, default: null },
@@ -79,6 +82,7 @@ export function toPublicUser(user) {
     isActive: user.isActive,
     isSuperAdmin: user.isSuperAdmin === true,
     academicNumber: user.academicNumber ?? null,
+    studyYear: user.studyYear ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,

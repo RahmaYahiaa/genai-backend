@@ -44,6 +44,12 @@ const importRowSchema = z.object({
   email: z.string().max(254).optional(),
   role: z.string().max(30).optional(),
   courseCodes: z.array(z.string().max(30)).max(10).optional(),
+  // Accepts 1-4 (number or numeric text); empty means unknown.
+  studyYear: z.union([z.number(), z.string().max(4), z.null()]).optional(),
+});
+
+const studyYearSchema = z.object({
+  studyYear: z.coerce.number().int().min(1).max(4).nullable(),
 });
 
 const stageImportSchema = z.object({
@@ -114,6 +120,7 @@ export const adminSchemas = {
   setActive: setActiveSchema,
   changeRole: changeRoleSchema,
   academicNumber: academicNumberSchema,
+  studyYear: studyYearSchema,
   createOfficer: createOfficerSchema,
   template: templateSchema,
   scopes: scopesSchema,

@@ -97,13 +97,13 @@ export function createCoursesController({ coursesService }) {
 
   const catalog = asyncHandler(async (req, res) => {
     const { search, page, limit, year } = req.validated.query;
-    const { items, total } = await coursesService.listCourseCatalog(req.user, {
+    const { items, total, studentYear } = await coursesService.listCourseCatalog(req.user, {
       search,
       page,
       limit,
       year,
     });
-    sendSuccess(res, { data: items, meta: buildPaginationMeta({ page, limit, total }) });
+    sendSuccess(res, { data: items, meta: { ...buildPaginationMeta({ page, limit, total }), studentYear } });
   });
 
   const catalogSelfEnroll = asyncHandler(async (req, res) => {

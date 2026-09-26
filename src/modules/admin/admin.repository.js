@@ -223,6 +223,7 @@ export async function listUsersByInstitution(institutionId) {
     isActive: u.isActive,
     isSuperAdmin: u.isSuperAdmin === true,
     academicNumber: u.academicNumber ?? null,
+    studyYear: u.studyYear ?? null,
     lastLoginAt: u.lastLoginAt ?? null,
     invited: u.isActive === false && !u.lastLoginAt,
     permissions: keysByUser.get(u._id.toString()) ?? [],
@@ -250,6 +251,10 @@ export async function setUserActive(userId, isActive) {
 
 export async function setUserRole(userId, role) {
   await User.updateOne({ _id: userId }, { $set: { role } });
+}
+
+export async function setStudyYear(userId, studyYear) {
+  await User.updateOne({ _id: userId }, { $set: { studyYear } });
 }
 
 export async function setAcademicNumber(userId, academicNumber) {
