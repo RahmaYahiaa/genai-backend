@@ -4,7 +4,7 @@ import EnrollmentRequest from './enrollment-request.model.js';
 import * as courseRepository from './course.repository.js';
 import * as enrollmentRepository from './enrollment.repository.js';
 import * as enrollmentRequestRepository from './enrollment-request.repository.js';
-import { authenticate, authorize, authService } from '../auth/index.js';
+import { authenticate, authorize, requireVerifiedEmail, authService } from '../auth/index.js';
 import { academicStructureService } from '../academic-structure/index.js';
 import { createCoursesService } from './courses.service.js';
 import { createCourseMiddlewares } from './courses.middlewares.js';
@@ -50,7 +50,7 @@ const controller = createCoursesController({ coursesService });
 export const coursesRouter = createCoursesRouter({
   controller,
   middlewares,
-  guards: { authenticate, authorize },
+  guards: { authenticate, authorize, requireVerifiedEmail },
   validators: {
     createCourse: validateSchemas({ body: createCourseSchema }),
     updateCourse: validateSchemas({ body: updateCourseSchema }),

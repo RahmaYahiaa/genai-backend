@@ -31,6 +31,7 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
   router.get(
     '/catalog',
     guards.authorize('student'),
+    guards.requireVerifiedEmail,
     validators.catalogQuery,
     controller.catalog,
   );
@@ -103,6 +104,7 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
   router.post(
     '/:courseId/enrollment-request',
     guards.authorize('student'),
+    guards.requireVerifiedEmail,
     validators.courseIdParam,
     validators.requestEnrollment,
     controller.requestEnrollment,
@@ -111,6 +113,7 @@ export function createCoursesRouter({ controller, middlewares, validators, guard
   router.post(
     '/:courseId/catalog-enroll',
     guards.authorize('student'),
+    guards.requireVerifiedEmail,
     validators.courseIdParam,
     controller.catalogSelfEnroll,
   );

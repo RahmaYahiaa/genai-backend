@@ -51,6 +51,26 @@ const userSchema = new mongoose.Schema(
     // Incremented on logout to revoke every previously issued token instantly.
     tokenVersion: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date, default: null },
+    // Email ownership. Accounts created by an admin / bulk import / seed are
+    // trusted (default true); self-registered accounts start unverified and
+    // confirm with a 6-digit code sent by email.
+    emailVerified: { type: Boolean, default: true },
+    emailVerifiedAt: { type: Date, default: null },
+    // One active code per purpose; only its hash is stored.
+    emailCodes: {
+      type: [
+        {
+          _id: false,
+          purpose: { type: String, enum: ['verify_email', 'reset_password'], required: true },
+          codeHash: { type: String, required: true },
+          expiresAt: { type: Date, required: true },
+          attempts: { type: Number, default: 0 },
+          sentAt: { type: Date, required: true },
+        },
+      ],
+      default: [],
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -61,6 +81,7 @@ const userSchema = new mongoose.Schema(
         delete ret.__v;
         delete ret.passwordHash;
         delete ret.tokenVersion;
+        delete ret.emailCodes;
         return ret;
       },
     },
@@ -92,6 +113,7 @@ export function toPublicUser(user) {
     academicNumber: user.academicNumber ?? null,
     studyYear: user.studyYear ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
+    emailVerified: user.emailVerified !== false,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

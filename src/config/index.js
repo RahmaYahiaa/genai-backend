@@ -86,7 +86,22 @@ const envSchema = z.object({
   UPLOADS_DIR: z.string().min(1).default('uploads'),
 
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
-  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
+  // General budget per signed-in user (anonymous traffic: per IP, 1/3 of it).
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(1000),
+  // Multiplies every per-endpoint limit (e.g. 10 for load tests / seeding).
+  RATE_LIMIT_MULTIPLIER: z.coerce.number().positive().default(1),
+  RATE_LIMIT_DISABLED: z.enum(['true', 'false']).default('false'),
+
+  // Outgoing email (Gmail SMTP by default: use a Google App Password).
+  // Without SMTP_USER/SMTP_PASS emails are printed to the server log (dev).
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_SECURE: z.enum(['true', 'false']).default('true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+  APP_NAME: z.string().default('Lerna'),
+  EMAIL_CODE_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
 
   AUTH_FAILED_ATTEMPTS_LIMIT: z.coerce.number().int().positive().default(10),
 });
@@ -196,6 +211,19 @@ export const config = Object.freeze({
   rateLimit: {
     windowMinutes: rawConfig.RATE_LIMIT_WINDOW_MINUTES,
     maxRequests: rawConfig.RATE_LIMIT_MAX_REQUESTS,
+    multiplier: rawConfig.RATE_LIMIT_MULTIPLIER,
+    disabled: rawConfig.RATE_LIMIT_DISABLED === 'true',
+  },
+
+  mail: {
+    host: rawConfig.SMTP_HOST,
+    port: rawConfig.SMTP_PORT,
+    secure: rawConfig.SMTP_SECURE === 'true',
+    user: rawConfig.SMTP_USER || null,
+    pass: rawConfig.SMTP_PASS ? rawConfig.SMTP_PASS.replace(/\s+/g, '') : null,
+    from: rawConfig.MAIL_FROM || (rawConfig.SMTP_USER ? `${rawConfig.APP_NAME} <${rawConfig.SMTP_USER}>` : `${rawConfig.APP_NAME} <no-reply@localhost>`),
+    appName: rawConfig.APP_NAME,
+    codeTtlMinutes: rawConfig.EMAIL_CODE_TTL_MINUTES,
   },
 
   auth: {

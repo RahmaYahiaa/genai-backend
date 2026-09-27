@@ -83,3 +83,15 @@ export const updateProfileSchema = z
   .refine((data) => Object.keys(data).length > 0, {
     error: 'Provide at least one field to update',
   });
+
+const codeField = z.string().trim().regex(/^\d{6}$/, 'The code is 6 digits');
+
+export const verifyEmailSchema = z.object({ code: codeField });
+
+export const forgotPasswordSchema = z.object({ email: emailField });
+
+export const resetPasswordSchema = z.object({
+  email: emailField,
+  code: codeField,
+  password: passwordField,
+});

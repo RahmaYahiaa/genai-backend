@@ -4,11 +4,20 @@ import { ERROR_CODES } from '../../config/constants.js';
 import { config } from '../../config/index.js';
 import { validateSchemas } from '../../shared/validation/validate.middleware.js';
 import * as authRepository from './auth.repository.js';
-import { authenticate, authorize } from './auth.middlewares.js';
+import { authenticate, authorize, requireVerifiedEmail } from './auth.middlewares.js';
 import { createAuthController } from './auth.controller.js';
 import { createAuthService } from './auth.service.js';
 import { createAuthRouter } from './auth.routes.js';
-import { registerSchema, loginSchema, refreshSchema, updateProfileSchema, registrationGuidanceSchema } from './auth.schema.js';
+import {
+  registerSchema,
+  loginSchema,
+  refreshSchema,
+  updateProfileSchema,
+  registrationGuidanceSchema,
+  verifyEmailSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from './auth.schema.js';
 import { academicStructureService } from '../academic-structure/index.js';
 
 // Brute-force protection on credential endpoints. Successful requests do not
@@ -48,9 +57,12 @@ export const authRouter = createAuthRouter({
     refresh: validateSchemas({ body: refreshSchema }),
     registrationGuidance: validateSchemas({ query: registrationGuidanceSchema }),
     updateProfile: validateSchemas({ body: updateProfileSchema }),
+    verifyEmail: validateSchemas({ body: verifyEmailSchema }),
+    forgotPassword: validateSchemas({ body: forgotPasswordSchema }),
+    resetPassword: validateSchemas({ body: resetPasswordSchema }),
   },
   rateLimiters: { authSensitive: authSensitiveLimiter },
 });
 
 // Public surface of this module, consumed by other modules and app assembly.
-export { authenticate, authorize, authService };
+export { authenticate, authorize, requireVerifiedEmail, authService };

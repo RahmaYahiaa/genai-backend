@@ -1,4 +1,4 @@
-import { UnauthorizedError, ForbiddenError } from '../../shared/errors/index.js';
+import { UnauthorizedError, ForbiddenError, EmailNotVerifiedError } from '../../shared/errors/index.js';
 import { verifyAccessToken } from './jwt.js';
 import * as authRepository from './auth.repository.js';
 import { toPublicUser } from './user.model.js';
@@ -51,4 +51,16 @@ export function authorize(...allowedRoles) {
     }
     next();
   };
+}
+
+/**
+ * Blocks features that depend on owning the email (university catalog,
+ * enrollment requests) until the account confirmed it with the emailed code.
+ */
+export function requireVerifiedEmail(req, _res, next) {
+  if (req.user && req.user.emailVerified === false) {
+    next(new EmailNotVerifiedError());
+    return;
+  }
+  next();
 }

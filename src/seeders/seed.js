@@ -20,7 +20,7 @@ function log(message) {
 }
 
 async function registerUser(payload) {
-  const { user } = await authService.register({ password: DEMO_PASSWORD, ...payload });
+  const { user } = await authService.register({ trustedEmail: true, password: DEMO_PASSWORD, ...payload });
   log(`user ready: ${user.role.padEnd(18)} ${user.email}`);
   return user;
 }

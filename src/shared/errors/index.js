@@ -37,6 +37,19 @@ export class UnprocessableEntityError extends AppError {
   }
 }
 
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Too many requests, please slow down.') {
+    super({ statusCode: 429, code: ERROR_CODES.RATE_LIMITED, message });
+  }
+}
+
+/** The account must confirm its email before using this feature. */
+export class EmailNotVerifiedError extends AppError {
+  constructor(message = 'Confirm your email address to use this feature') {
+    super({ statusCode: 403, code: ERROR_CODES.EMAIL_NOT_VERIFIED, message });
+  }
+}
+
 /**
  * Governance error: raised when retrieval does not provide enough trusted
  * course evidence to answer confidently. The system states that evidence is

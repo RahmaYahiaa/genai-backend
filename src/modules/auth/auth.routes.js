@@ -14,6 +14,11 @@ export function createAuthRouter({ controller, middlewares, validators, rateLimi
     validators.registrationGuidance,
     controller.registrationGuidance,
   );
+  // Email ownership + password recovery (6-digit codes sent by email).
+  router.post('/verify-email', middlewares.authenticate, validators.verifyEmail, controller.verifyEmail);
+  router.post('/verify-email/resend', middlewares.authenticate, controller.resendVerification);
+  router.post('/forgot-password', validators.forgotPassword, controller.forgotPassword);
+  router.post('/reset-password', validators.resetPassword, controller.resetPassword);
   router.post('/logout', middlewares.authenticate, controller.logout);
   router.get('/me', middlewares.authenticate, controller.getProfile);
   router.patch('/me', middlewares.authenticate, validators.updateProfile, controller.updateProfile);

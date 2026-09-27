@@ -78,7 +78,7 @@ async function ensureUser({ email, firstName, lastName, role, institutionId, aca
     log(`created: ${email} (${role})`);
     return user;
   }
-  const { user } = await authService.register({
+  const { user } = await authService.register({ trustedEmail: true,
     email,
     firstName,
     lastName,

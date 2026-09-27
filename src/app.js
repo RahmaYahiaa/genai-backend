@@ -3,11 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import pinoHttp from 'pino-http';
-import rateLimit from 'express-rate-limit';
+import { generalLimiter, endpointLimiter } from './shared/http/rate-limits.js';
 
 import { config } from './config/index.js';
 import { logger } from './config/logger.js';
-import { ERROR_CODES } from './config/constants.js';
 import { requestContext } from './api/v1/middlewares/request-context.middleware.js';
 import { notFoundHandler } from './api/v1/middlewares/not-found.middleware.js';
 import { errorHandler } from './api/v1/middlewares/error.middleware.js';
@@ -41,23 +40,9 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true }));
   app.use(compression());
 
-  const globalLimiter = rateLimit({
-    windowMs: config.rateLimit.windowMinutes * 60 * 1000,
-    limit: config.rateLimit.maxRequests,
-    standardHeaders: 'draft-8',
-    legacyHeaders: false,
-    handler: (req, res) => {
-      res.status(429).json({
-        success: false,
-        error: {
-          code: ERROR_CODES.RATE_LIMITED,
-          message: 'Too many requests, please slow down.',
-          requestId: req.id,
-        },
-      });
-    },
-  });
-  app.use('/api', globalLimiter);
+  // Per-user rate limits (see shared/http/rate-limits.js for the numbers).
+  app.use('/api', generalLimiter);
+  app.use('/api/v1', endpointLimiter);
 
   app.use('/api/v1', v1Router);
   if (config.enableSwagger) {

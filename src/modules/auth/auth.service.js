@@ -6,8 +6,11 @@ import {
   ForbiddenError,
   NotFoundError,
   UnauthorizedError,
+  UnprocessableEntityError,
 } from '../../shared/errors/index.js';
 import { issueTokenPair, verifyRefreshToken } from './jwt.js';
+import * as emailCodes from './email-code.service.js';
+import { logger } from '../../config/logger.js';
 import { toPublicUser } from './user.model.js';
 
 const DUPLICATE_KEY_CODE = 11000;
@@ -57,6 +60,9 @@ export function createAuthService({ repository, institutionService }) {
     emailDomains,
     allowSelfRegistration,
     languagePreference,
+    // Internal only (seeders / trusted callers). The HTTP schema strips it,
+    // so a client can never skip email verification.
+    trustedEmail = false,
   }) {
     // Belt-and-braces duplicate check (the unique index remains the
     // race-safe backstop for truly concurrent requests).
@@ -74,8 +80,10 @@ export function createAuthService({ repository, institutionService }) {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         isActive: true,
+        emailVerified: false,
       });
       const activated = await repository.findByIdWithTokenVersion(existingUser._id);
+      await sendVerification(activated._id);
       const { adminService } = await import('../admin/index.js');
       await adminService.acceptPendingInvitationsForUser(activated).catch(() => undefined);
       return { user: toPublicUser(activated), tokens: issueTokenPair(activated) };
@@ -153,7 +161,10 @@ export function createAuthService({ repository, institutionService }) {
         institutionId: effectiveInstitutionId,
         accountType,
         languagePreference,
+        // Self-registered: must confirm the email with a code.
+        emailVerified: trustedEmail === true,
       });
+      if (trustedEmail !== true) await sendVerification(user._id);
 
       const { adminService } = await import('../admin/index.js');
       await adminService.acceptPendingInvitationsForUser(user).catch(() => undefined);
@@ -169,6 +180,59 @@ export function createAuthService({ repository, institutionService }) {
       }
       throw error;
     }
+  }
+
+  /** Registration never fails because of email delivery; the user can resend. */
+  async function sendVerification(userId) {
+    try {
+      await emailCodes.issueCode(userId, 'verify_email');
+    } catch (error) {
+      logger.warn({ err: error.message }, 'Could not send the verification email');
+    }
+  }
+
+  async function resendVerification(userId) {
+    const user = await repository.findById(userId);
+    if (!user) throw new NotFoundError('User not found');
+    if (user.emailVerified !== false) return { emailVerified: true };
+    const sent = await emailCodes.issueCode(userId, 'verify_email');
+    return { sent: true, expiresInMinutes: sent?.expiresInMinutes ?? null };
+  }
+
+  async function verifyEmail(userId, { code }) {
+    const current = await repository.findById(userId);
+    if (!current) throw new NotFoundError('User not found');
+    if (current.emailVerified === false) {
+      await emailCodes.consumeCode(userId, 'verify_email', code);
+      await repository.updateById(userId, { emailVerified: true, emailVerifiedAt: new Date() });
+    }
+    return toPublicUser(await repository.findById(userId));
+  }
+
+  /** Always answers the same way so it cannot be used to find accounts. */
+  async function forgotPassword({ email }) {
+    const user = await repository.findByEmail(email);
+    if (user && user.isActive !== false) {
+      await emailCodes.issueCode(user._id, 'reset_password').catch((error) => {
+        logger.warn({ err: error.message }, 'Password reset code not sent');
+      });
+    }
+    return { sent: true };
+  }
+
+  async function resetPassword({ email, code, password }) {
+    const user = await repository.findByEmail(email);
+    if (!user || user.isActive === false) {
+      throw new UnprocessableEntityError('This code is not valid. Ask for a new code');
+    }
+    await emailCodes.consumeCode(user._id, 'reset_password', code);
+    const passwordHash = await hashPassword(password);
+    // Receiving the code proves the email too; old sessions are signed out.
+    await repository.updateById(user._id, {
+      $set: { passwordHash, emailVerified: true, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+      $inc: { tokenVersion: 1 },
+    });
+    return { reset: true };
   }
 
   async function login({ email, password }) {
@@ -292,5 +356,18 @@ export function createAuthService({ repository, institutionService }) {
     };
   }
 
-  return { register, login, refresh, logout, getProfile, getProfilesByIds, updateProfile, getRegistrationGuidance };
+  return {
+    register,
+    login,
+    refresh,
+    logout,
+    getProfile,
+    getProfilesByIds,
+    updateProfile,
+    getRegistrationGuidance,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    resetPassword,
+  };
 }

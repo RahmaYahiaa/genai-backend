@@ -36,5 +36,33 @@ export function createAuthController({ authService }) {
     sendSuccess(res, { data: user });
   });
 
-  return { register, login, refresh, registrationGuidance, logout, getProfile, updateProfile };
+  const verifyEmail = asyncHandler(async (req, res) => {
+    sendSuccess(res, { data: await authService.verifyEmail(req.user.id, req.validated.body) });
+  });
+
+  const resendVerification = asyncHandler(async (req, res) => {
+    sendSuccess(res, { data: await authService.resendVerification(req.user.id) });
+  });
+
+  const forgotPassword = asyncHandler(async (req, res) => {
+    sendSuccess(res, { data: await authService.forgotPassword(req.validated.body) });
+  });
+
+  const resetPassword = asyncHandler(async (req, res) => {
+    sendSuccess(res, { data: await authService.resetPassword(req.validated.body) });
+  });
+
+  return {
+    register,
+    login,
+    refresh,
+    registrationGuidance,
+    logout,
+    getProfile,
+    updateProfile,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    resetPassword,
+  };
 }

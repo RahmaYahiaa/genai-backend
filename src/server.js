@@ -2,6 +2,7 @@ import { config } from './config/index.js';
 import { logger } from './config/logger.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { createApp } from './app.js';
+import { verifyMailTransport } from './shared/mail/mailer.js';
 
 async function main() {
   await connectDatabase();
@@ -9,6 +10,7 @@ async function main() {
   const app = createApp();
   const server = app.listen(config.port, '0.0.0.0', () => {
     logger.info(`GenAI backend listening on port ${config.port} [${config.env}]`);
+    void verifyMailTransport();
   });
 
   const shutdown = (signal) => {
