@@ -30,6 +30,13 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(LANGUAGES),
       default: LANGUAGES.ENGLISH,
     },
+    // Language the AI features answer in (tutor, study tools). Set from the
+    // profile's AI preferences; null means "follow the account language".
+    aiLanguage: {
+      type: String,
+      enum: [...['en', 'ar', 'fr', 'sw', 'ha', 'am', 'so', 'yo', 'ig', 'zu'], null],
+      default: null,
+    },
     isActive: { type: Boolean, default: true },
     // FR-ADM-01 — the tenant's super admin; bypasses officer-scope key checks
     // and alone manages officer permission rows. Officers keep this false and
@@ -79,6 +86,7 @@ export function toPublicUser(user) {
     accountType: user.accountType,
     institutionId: user.institutionId ? user.institutionId.toString() : null,
     languagePreference: user.languagePreference,
+    aiLanguage: user.aiLanguage ?? null,
     isActive: user.isActive,
     isSuperAdmin: user.isSuperAdmin === true,
     academicNumber: user.academicNumber ?? null,

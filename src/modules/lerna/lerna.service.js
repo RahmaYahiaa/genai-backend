@@ -52,7 +52,7 @@ export function createLernaService({ lernaClient }) {
       course: courseCode ?? 'General',
     };
     if (!existing) {
-      body.preferred_language = user.languagePreference === 'ar' ? 'ar' : 'en';
+      body.preferred_language = user.aiLanguage ?? (user.languagePreference === 'ar' ? 'ar' : 'en');
     }
     await lernaClient.patch(`/students/${studentId}/preferences`, { studentId, body });
     syncedContexts.add(key);

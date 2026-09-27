@@ -18,6 +18,24 @@ import {
 import { chunkText } from '../../shared/text/chunker.js';
 import { cosineSimilarity } from '../../shared/math/vector-math.js';
 
+const AI_LANGUAGE_NAMES = {
+  en: 'English', ar: 'Arabic (Modern Standard)', fr: 'French', sw: 'Swahili', ha: 'Hausa',
+  am: 'Amharic', so: 'Somali', yo: 'Yoruba', ig: 'Igbo', zu: 'Zulu',
+};
+
+// The profile's AI language (Profile -> AI preferences) decides the answer
+// language; without one, the tutor mirrors the language of the question.
+function withLanguage(prompt, user) {
+  const code = user?.aiLanguage;
+  if (!code || !AI_LANGUAGE_NAMES[code]) return prompt;
+  const name = AI_LANGUAGE_NAMES[code];
+  return (
+    prompt +
+    ` LANGUAGE RULE (overrides the rule above): the student chose ${name} in their profile. Write the "answer" in ${name}` +
+    ' even if the question is written in another language; keep code and standard technical terms in English where that is the norm.'
+  );
+}
+
 const TUTOR_SYSTEM_PROMPT =
   'You are a course tutor for an academic learning platform. ' +
   'Answer ONLY from the trusted course material excerpts provided in the input. ' +
@@ -219,7 +237,7 @@ export function createTutorService({
     const generated = parseLlmJson(
       await llmProvider.completeJson({
         task: 'answer_tutor_question',
-        system: TUTOR_SYSTEM_PROMPT,
+        system: withLanguage(TUTOR_SYSTEM_PROMPT, user),
         user: JSON.stringify({
           topicTitle,
           mode: session.mode,
@@ -309,9 +327,21 @@ export function createTutorService({
       session,
       question: data.content,
       documentIds,
+      language: user.aiLanguage ?? null,
     });
 
     if (response.abstained) {
+      // The AI engine answers in English first and translates; for a chosen
+      // non-English answer language its evidence check can abstain even when
+      // the course files cover the question. Retry through the local grounded
+      // pipeline (still course-material first, still abstains honestly) so the
+      // answer comes back in the student's language.
+      if (user.aiLanguage && user.aiLanguage !== 'en') {
+        const retry = new AiServiceUnavailableError('AI engine abstained for a non-English answer language');
+        retry.engineUp = true;
+        retry.beforeRecord = false;
+        throw retry;
+      }
       throw new InsufficientEvidenceError(
         response.answer ||
           'No trusted material matches the question closely enough to answer safely',
@@ -387,7 +417,7 @@ export function createTutorService({
    * -> grounded LLM answer citing sources by index. Any failure to find
    * trusted evidence abstains explicitly; the model's memory is never used.
    */
-  async function answerFromTrustedExternal({ _user, _course, session, topicTitle, question }) {
+  async function answerFromTrustedExternal({ user, _course, session, topicTitle, question }) {
     if (!isWebSearchEnabled() || !embeddingProvider) {
       throw new InsufficientEvidenceError(
         'No trusted material in this course matches the question closely enough, and trusted external discovery is not available',
@@ -447,7 +477,7 @@ export function createTutorService({
     const generated = parseLlmJson(
       await llmProvider.completeJson({
         task: 'answer_tutor_question_external',
-        system: EXTERNAL_TUTOR_SYSTEM_PROMPT,
+        system: withLanguage(EXTERNAL_TUTOR_SYSTEM_PROMPT, user),
         user: JSON.stringify({
           topicTitle,
           mode: session.mode,

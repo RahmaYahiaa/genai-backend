@@ -70,7 +70,7 @@ export function createLernaController({ lernaService }) {
       studentId: user.id,
       name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
       course: null,
-      preferredLanguage: user.languagePreference ?? 'en',
+      preferredLanguage: user.aiLanguage ?? user.languagePreference ?? 'en',
       learningPreference: null,
       conceptMastery: local?.profile?.concept_mastery ?? {},
       weakConcepts: local?.profile?.weak_concepts ?? [],
@@ -89,15 +89,16 @@ export function createLernaController({ lernaService }) {
   }
 
   async function updatePreferences(req, res) {
+    // The AI answer language is always saved on the account too, so the tutor
+    // and study tools follow it even when the AI engine is unreachable.
+    if (req.body.preferredLanguage) {
+      const { default: User } = await import('../auth/user.model.js');
+      await User.updateOne({ _id: req.user.id }, { $set: { aiLanguage: req.body.preferredLanguage } });
+      req.user.aiLanguage = req.body.preferredLanguage;
+    }
     if (config.lerna.enabled) {
       const updated = await lernaService.updatePreferences(req.user, req.body).catch(() => null);
       if (updated) return res.json({ success: true, data: updated });
-    }
-    // Engine unavailable: persist what the platform itself owns (language).
-    if (req.body.preferredLanguage === 'en' || req.body.preferredLanguage === 'ar') {
-      const { default: User } = await import('../auth/user.model.js');
-      await User.updateOne({ _id: req.user.id }, { $set: { languagePreference: req.body.preferredLanguage } });
-      req.user.languagePreference = req.body.preferredLanguage;
     }
     return res.json({ success: true, data: await localPreferences(req.user) });
   }

@@ -99,8 +99,40 @@ export function createGroqLlmProvider({
     return groqModel;
   }
 
+  // Groq's free tier also has a per-model daily token budget. When the main
+  // model hits it, the same key can still use the other models (each has its
+  // own budget), so the answer does not fail for the rest of the day.
+  const exhaustedUntil = new Map();
+  function parseRetryMs(text) {
+    const m = /try again in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?/i.exec(text ?? '');
+    if (!m) return 10 * 60_000;
+    return ((Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0)) * 60 + Number(m[3] ?? 0)) * 1000 + 1000;
+  }
+  async function groqCandidates() {
+    const first = await resolveGroqModel();
+    const available = await availableGroqModels();
+    const list = [first, ...GROQ_PREFERRED_MODELS.filter((m) => m !== first && (!available || available.has(m)))];
+    const now = Date.now();
+    const fresh = list.filter((m) => (exhaustedUntil.get(m) ?? 0) <= now);
+    return fresh.length ? fresh : [first];
+  }
+
   async function callGroq(system, user) {
-    const model = await resolveGroqModel();
+    const candidates = await groqCandidates();
+    let lastError;
+    for (const model of candidates) {
+      try {
+        return await callGroqModel(model, system, user);
+      } catch (error) {
+        lastError = error;
+        if (!error.dailyLimit) throw error;
+        exhaustedUntil.set(model, Date.now() + error.retryMs);
+      }
+    }
+    throw lastError;
+  }
+
+  async function callGroqModel(model, system, user) {
     const post = async (temperature) => {
       try {
         return await fetch(GROQ_ENDPOINT, {
@@ -132,6 +164,9 @@ export function createGroqLlmProvider({
     // up after a bounded total wait so the caller can fall back or report.
     let waited = 0;
     for (let attempt = 0; attempt < 4 && response.status === 429; attempt += 1) {
+      // A daily budget will not free up in seconds: switch model right away.
+      const peek = await response.clone().text().catch(() => '');
+      if (/per day/i.test(peek)) break;
       const retryAfter = Number(response.headers.get('retry-after'));
       const delay = Math.min(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** attempt, 15_000);
       if (waited + delay > 30_000) break;
@@ -141,7 +176,14 @@ export function createGroqLlmProvider({
     }
     if (!response.ok) {
       resolvedModel = null;
-      throw new AiProviderError(`LLM provider returned status ${response.status}`);
+      const body = await response.text().catch(() => '');
+      const detail = body.slice(0, 300);
+      const error = new AiProviderError(`LLM provider returned status ${response.status} (${model})${detail ? `: ${detail}` : ''}`);
+      if (response.status === 429 && /per day/i.test(body)) {
+        error.dailyLimit = true;
+        error.retryMs = parseRetryMs(body);
+      }
+      throw error;
     }
     const payload = await response.json();
     return payload?.choices?.[0]?.message?.content ?? '';

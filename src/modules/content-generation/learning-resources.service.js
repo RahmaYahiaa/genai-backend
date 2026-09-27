@@ -183,10 +183,28 @@ export function createLearningResourcesService({
     }
   }
 
+  // Every language the API accepts (see learning-resources.schema.js).
+  const LANGUAGE_NAMES = {
+    en: 'English',
+    ar: 'Arabic (Modern Standard)',
+    fr: 'French',
+    sw: 'Swahili',
+    ha: 'Hausa',
+    am: 'Amharic (Ge\'ez script)',
+    so: 'Somali',
+    yo: 'Yoruba',
+    ig: 'Igbo',
+    zu: 'Zulu',
+  };
+
   function languageLine(language) {
-    return language === 'ar'
-      ? 'Write ALL user-facing text in Arabic (Modern Standard), keeping technical terms and code in English where standard.'
-      : 'Write in clear academic English.';
+    if (!language || language === 'en') return 'Write in clear academic English.';
+    const name = LANGUAGE_NAMES[language] ?? 'English';
+    return (
+      `Write ALL user-facing text (titles, points, cards, questions, options, explanations, labels) in ${name}. ` +
+      'Do not answer in English. Keep code, formulas and standard technical terms in English where that is the norm, ' +
+      `but explain them in ${name}. JSON keys stay exactly as specified in English.`
+    );
   }
 
   async function generateTextKind(kind, { topic, language, focus, evidenceText }) {
