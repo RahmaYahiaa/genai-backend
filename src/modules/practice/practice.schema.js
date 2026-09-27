@@ -11,8 +11,12 @@ export const practiceSessionIdParamSchema = z.object({
   practiceSessionId: objectIdField('practiceSessionId'),
 });
 
+// What to practise - all optional: a course topic, free text ("Banker's
+// algorithm"), or one course file. Nothing = the AI picks the weakest topic.
 export const createPracticeSessionSchema = z.object({
-  topicId: objectIdField('topicId'),
+  topicId: objectIdField('topicId').optional(),
+  focus: z.string().trim().min(2).max(200).optional(),
+  materialId: objectIdField('materialId').optional(),
   questionsCount: z.coerce.number().int().min(1).max(10).default(3),
 });
 

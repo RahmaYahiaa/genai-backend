@@ -217,9 +217,11 @@
  *   post:
  *     summary: Add a question
  *     description: >-
- *       Adds a question. topicId is required and must belong to the assignment's
- *       course (422 otherwise) because every grading result becomes learning
- *       evidence tied to that topic. maxScore must be greater than 0.
+ *       Adds a question. topicId is optional; when given it must belong to the
+ *       assignment's course (422 otherwise). When omitted, the topic is matched
+ *       automatically from the question text against the course's AI-detected
+ *       topics, so grading results still become per-topic learning evidence.
+ *       maxScore must be greater than 0.
  *       modelAnswer and rubricText are free text, instructor-only.
  *       questionType selects how the answer card renders and how the question
  *       is graded: subjective types (short_answer, long_answer, essay,

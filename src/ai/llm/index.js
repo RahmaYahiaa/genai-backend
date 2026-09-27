@@ -10,6 +10,8 @@ import { AiProviderError, AiServiceUnavailableError } from '../../shared/errors/
 import { config } from '../../config/index.js';
 import { createAnthropicLlmProvider } from './anthropic-llm.provider.js';
 import { createGroqLlmProvider } from './groq-llm.provider.js';
+import { createLernaFirstLlmProvider } from './lerna-first.provider.js';
+import { createLernaClient } from '../../modules/lerna/lerna.client.js';
 
 export function createLlmProvider(overrides = {}) {
   const provider = overrides.provider ?? config.ai.llmProvider;
@@ -68,7 +70,15 @@ function createUnavailableLlmGuard() {
 function resolveLlmProvider() {
   if (!config.lerna.enabled) return createLlmProvider();
   const hasKey = Boolean(config.ai.groqApiKey || config.ai.anthropicApiKey || config.ai.openrouterApiKey);
-  return hasKey ? createLlmProvider() : createUnavailableLlmGuard();
+  const local = hasKey ? createLlmProvider() : createUnavailableLlmGuard();
+  // LeRna runs every structured AI task first; the local provider is the
+  // backup path used whenever LeRna is down.
+  return createLernaFirstLlmProvider({
+    local,
+    lernaClient: createLernaClient(),
+    timeoutMs: config.lerna.timeoutMs,
+    probeTimeoutMs: config.lerna.probeTimeoutMs,
+  });
 }
 
 export const llmProvider = resolveLlmProvider();

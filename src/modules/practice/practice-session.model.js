@@ -76,10 +76,14 @@ const practiceSessionSchema = new mongoose.Schema(
       ref: 'Course',
       required: true,
     },
+    // null when the student practised free text that matches no course topic.
     topicId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      default: null,
     },
+    focus: { type: String, default: null, maxlength: 200 },
+    materialId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    topicTitle: { type: String, default: null, maxlength: 200 },
     institutionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Institution',
@@ -112,7 +116,10 @@ export function toPublicPracticeSession(session) {
     id: session._id.toString(),
     studentId: session.studentId.toString(),
     courseId: session.courseId.toString(),
-    topicId: session.topicId.toString(),
+    topicId: session.topicId ? session.topicId.toString() : null,
+    focus: session.focus ?? null,
+    materialId: session.materialId ? session.materialId.toString() : null,
+    topicTitle: session.topicTitle ?? null,
     status: session.status,
     questions: (session.questions ?? []).map((question) => ({
       id: question._id.toString(),

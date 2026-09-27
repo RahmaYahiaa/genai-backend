@@ -15,6 +15,8 @@
     "lint": "eslint .",
     "seed": "node src/seeders/seed.js",
     "seed:admin": "node src/seeders/seed-admin.js",
+    "seed:demo": "node src/seeders/seed-demo.js",
+    "seed:all": "node src/seeders/seed.js --reset && node src/seeders/seed-admin.js && node src/seeders/seed-demo.js",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

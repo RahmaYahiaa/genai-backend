@@ -28,6 +28,8 @@ const materialChunkSchema = new mongoose.Schema(
     },
     order: { type: Number, required: true, min: 0 },
     text: { type: String, required: true },
+    // Course topic this chunk teaches (AI topic detection); null until detected.
+    topicId: { type: mongoose.Schema.Types.ObjectId, default: null },
     charCount: { type: Number, required: true, min: 0 },
     embedding: { type: [Number], select: false, required: true },
     embeddingModel: { type: String, required: true },

@@ -90,6 +90,7 @@ export function createKnowledgeIngestionService({
         domainEvents.emit('MaterialsUploaded', {
           courseId: courseDocumentId(course).toString(),
           materialId: material._id.toString(),
+          sectionTexts: chunkTexts,
         });
         return toPublicMaterial(ready);
       }
@@ -133,6 +134,7 @@ export function createKnowledgeIngestionService({
         domainEvents.emit('MaterialsUploaded', {
           courseId: ready.courseId.toString(),
           materialId: material._id.toString(),
+          sectionTexts: chunkTexts,
         });
         return toPublicMaterial(ready);
       }
@@ -269,6 +271,7 @@ export function createKnowledgeIngestionService({
         domainEvents.emit('MaterialsUploaded', {
           courseId: materialFields.courseId.toString(),
           materialId: material._id.toString(),
+          sectionTexts: chunkTexts,
         });
         return toPublicMaterial(ready);
       }
@@ -310,6 +313,7 @@ export function createKnowledgeIngestionService({
         domainEvents.emit('MaterialsUploaded', {
           courseId: ready.courseId.toString(),
           materialId: material._id.toString(),
+          sectionTexts: chunkTexts,
         });
         return toPublicMaterial(ready);
       }

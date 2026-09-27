@@ -4,7 +4,10 @@ import { COURSE_STAFF_ROLES, LANGUAGES, ROLES } from '../config/constants.js';
 import { authService } from '../modules/auth/index.js';
 import * as authRepository from '../modules/auth/auth.repository.js';
 import { academicStructureService } from '../modules/academic-structure/index.js';
+import { readFile } from 'node:fs/promises';
 import { coursesService } from '../modules/courses/index.js';
+import { knowledgeIngestionService } from '../modules/knowledge/index.js';
+import { topicDetectionService } from '../modules/topics/index.js';
 
 const DEMO_PASSWORD = 'Passw0rd1';
 const ADMIN_EMAIL = 'admin@menoufia.edu.eg';
@@ -146,13 +149,31 @@ async function main() {
   });
   log('enrollment request: farida -> CS201 (pending admin approval)');
 
-  await coursesService.addTopic(instructor, course.id, { title: 'Set Theory', order: 1 });
-  await coursesService.addTopic(instructor, course.id, { title: 'Graph Theory', order: 2 });
-  await coursesService.addTopic(instructor, course.id, { title: 'Graph Coloring', order: 3 });
-  await coursesService.addTopic(instructor, osCourse.id, { title: 'CPU Scheduling', order: 1 });
-  await coursesService.addTopic(instructor, osCourse.id, { title: 'Deadlocks', order: 2 });
-  await coursesService.addTopic(instructor, osCourse.id, { title: 'Memory Management', order: 3 });
-  log('topics ready: CS201 (3) + CS301 (3)');
+  // Topics are not typed by hand any more: the instructor uploads the course
+  // files and the AI detects the topics from them (same path as the app).
+  const seedMaterials = [
+    [course.id, 'Lecture notes weeks 1-4', 'cs201-sets-and-graphs.md', 'CS201'],
+    [osCourse.id, 'Lecture notes weeks 1-4', 'cs301-processes-and-memory.md', 'CS301'],
+  ];
+  const topicSummary = [];
+  for (const [courseId, title, file, code] of seedMaterials) {
+    const content = await readFile(new URL(`./materials/${file}`, import.meta.url), 'utf8');
+    const material = await knowledgeIngestionService.uploadMaterial(instructor, courseId, {
+      title,
+      content,
+      fileName: file,
+      mimeType: 'text/markdown',
+      sourceType: 'lecture_notes',
+    });
+    const topics = await topicDetectionService.detectForMaterial(material.id);
+    if (topics?.length) {
+      topicSummary.push(`${code}: ${topics.map((t) => t.title).join(', ')}`);
+      log(`material ready: ${code} "${title}" -> AI topics: ${topics.map((t) => t.title).join(', ')}`);
+    } else {
+      topicSummary.push(`${code}: (AI unavailable - open the course and choose "Find topics again")`);
+      log(`material ready: ${code} "${title}" -> topic detection unavailable (no AI provider reachable)`);
+    }
+  }
 
   console.log(
     [
@@ -161,9 +182,9 @@ async function main() {
       ' ✔ Seed complete - structure only, zero demo data',
       '════════════════════════════════════════════════════════════',
       ' courses     CS201 Discrete Mathematics | CS301 Operating Systems',
-      ' topics      CS201: Set Theory, Graph Theory, Graph Coloring',
-      '             CS301: CPU Scheduling, Deadlocks, Memory Management',
-      ' content     none: upload real materials and build assignments live',
+      ` topics      detected by the AI from the course files`,
+      ...topicSummary.map((line) => `             ${line}`),
+      ' content     one lecture-notes file per course; build assignments live',
       ' enrollment  1 pending request (farida -> CS201) awaiting admin approval',
       '────────────────────────────────────────────────────────────',
       ` logins (password: ${DEMO_PASSWORD})`,

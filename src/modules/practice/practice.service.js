@@ -22,6 +22,7 @@ const CORRECTNESS_SCORES = {
 const PRACTICE_QUESTION_SYSTEM_PROMPT =
   'You are a practice-question generator for an academic learning platform. ' +
   'Generate open-ended practice questions that let a student actively apply the topic. ' +
+  'When courseMaterial excerpts are given, every question must be answerable from them. ' +
   'Respond with JSON only, matching exactly: ' +
   '{"questions":[{"prompt":"<question text>","difficulty":"easy|medium|hard"}]}';
 
@@ -46,6 +47,7 @@ export function createPracticeService({
   practiceRepository,
   evidenceRepository,
   llmProvider,
+  topicDetectionService,
 }) {
   function parseLlmJson(raw, schema, taskName) {
     const result = schema.safeParse(raw);
@@ -88,10 +90,12 @@ export function createPracticeService({
   async function startSession(user, courseId, data) {
     const course = await coursesService.ensureStudentCourseAccess(user, courseId);
     const topics = getCourseTopics(course);
-    const topic = topics.find((item) => item.id === data.topicId);
-    if (!topic) {
-      throw new ValidationError('topicId must reference a topic of this course');
-    }
+    const target = await topicDetectionService.resolveFocus(courseDocumentId(course), user.id, {
+      topicId: data.topicId ?? null,
+      focus: data.focus ?? null,
+      materialId: data.materialId ?? null,
+    });
+    const topic = topics.find((item) => item.id === target.topicId);
 
     const generated = parseLlmJson(
       await llmProvider.completeJson({
@@ -99,9 +103,12 @@ export function createPracticeService({
         system: PRACTICE_QUESTION_SYSTEM_PROMPT,
         user: JSON.stringify({
           courseTitle: course.title,
-          topicTitle: topic.title,
-          objectives: topic.objectives,
+          topicTitle: target.title,
+          objectives: topic?.objectives ?? [],
           count: data.questionsCount,
+          // Excerpts of the course files on this topic/file: questions must
+          // be answerable from them when present.
+          courseMaterial: target.context,
         }),
       }),
       llmPracticeQuestionsSchema,
@@ -120,7 +127,10 @@ export function createPracticeService({
     const session = await practiceRepository.create({
       studentId: user.id,
       courseId: courseDocumentId(course),
-      topicId: new mongoose.Types.ObjectId(topic.id),
+      topicId: target.topicId ? new mongoose.Types.ObjectId(target.topicId) : null,
+      focus: target.focus,
+      materialId: target.materialId,
+      topicTitle: target.title,
       institutionId: course.institutionId ?? null,
       isPersonal: Boolean(course.isPersonal),
       status: 'in_progress',
@@ -165,7 +175,7 @@ export function createPracticeService({
     }
 
     const topics = getCourseTopics(course);
-    const topic = topics.find((item) => item.id === session.topicId.toString());
+    const topic = session.topicId ? topics.find((item) => item.id === session.topicId.toString()) : null;
 
     const evaluation = parseLlmJson(
       await llmProvider.completeJson({
@@ -173,7 +183,7 @@ export function createPracticeService({
         system: ANSWER_EVALUATION_SYSTEM_PROMPT,
         user: JSON.stringify({
           courseTitle: course.title,
-          topicTitle: topic?.title ?? 'Unknown topic',
+          topicTitle: topic?.title ?? session.topicTitle ?? session.focus ?? 'General',
           objectives: topic?.objectives ?? [],
           questionPrompt: question.prompt,
           difficulty: question.difficulty,
@@ -187,7 +197,8 @@ export function createPracticeService({
     // Deterministic score derivation - the LLM never outputs this number.
     const score = CORRECTNESS_SCORES[evaluation.correctness];
 
-    const evidence = await evidenceRepository.create({
+    // Evidence counts toward a topic only when the practice is linked to one.
+    const evidence = !session.topicId ? null : await evidenceRepository.create({
       studentId: user.id,
       courseId: courseDocumentId(course),
       topicId: session.topicId,
@@ -217,7 +228,7 @@ export function createPracticeService({
         model: llmProvider.model,
         evaluatedAt: new Date(),
       },
-      evidenceId: evidence._id,
+      evidenceId: evidence?._id ?? null,
       answeredAt: new Date(),
     });
 
@@ -236,7 +247,7 @@ export function createPracticeService({
           feedback: evaluation.feedback,
           model: llmProvider.model,
         },
-        evidence: toPublicEvidence(evidence),
+        evidence: evidence ? toPublicEvidence(evidence) : null,
       },
     };
   }

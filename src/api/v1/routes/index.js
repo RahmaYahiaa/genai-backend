@@ -18,6 +18,7 @@ import { analyticsRouter } from '../../../modules/analytics/index.js';
 import { adminRouter, linkConsentRouter } from '../../../modules/admin/index.js';
 import { learningResourcesRouter } from '../../../modules/content-generation/index.js';
 import { lernaRouter } from '../../../modules/lerna/index.js';
+import { topicsRouter } from '../../../modules/topics/index.js';
 
 const router = Router();
 
@@ -28,6 +29,8 @@ router.use(academicStructureRouter);
 router.use('/courses', coursesRouter);
 // Handles /courses/:courseId/materials/* routes internally (knowledge module).
 router.use(knowledgeIngestionRouter);
+// AI topic detection maintenance: /courses/:courseId/topics/detect|merge.
+router.use(topicsRouter);
 // Handles /courses/:courseId/learner-profile and /diagnostics/* routes
 // internally (learner module).
 router.use(learnerDiagnosticRouter);

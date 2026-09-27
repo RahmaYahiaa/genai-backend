@@ -1,3 +1,4 @@
+import { topicDetectionService } from '../topics/index.js';
 import Assignment from './assignment.model.js';
 import AssignmentQuestion from './assignment-question.model.js';
 import * as assignmentRepository from './assignment.repository.js';
@@ -33,6 +34,7 @@ export const assignmentsService = createAssignmentsService({
   coursesService,
   auditService,
   domainEvents,
+  topicDetectionService,
 });
 
 const controller = createAssignmentsController({ assignmentsService, submissionsService });

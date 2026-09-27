@@ -10,7 +10,9 @@ export const resourceIdParamSchema = z.object({
 });
 
 export const generateResourcesSchema = z.object({
-  topic: z.string().trim().min(3).max(200),
+  // Free-text subject and/or one course file to build from (either is enough).
+  topic: z.string().trim().min(3).max(200).optional(),
+  materialId: objectIdField('materialId').optional(),
   kinds: z
     .array(
       z.enum([
@@ -37,6 +39,9 @@ export const generateResourcesSchema = z.object({
     .min(1)
     .max(10),
   language: z.enum(['en', 'ar', 'fr', 'sw', 'ha', 'am', 'so', 'yo', 'ig', 'zu']).default('en'),
+}).refine((value) => Boolean(value.topic || value.materialId), {
+  message: 'Type a topic or choose a course file',
+  path: ['topic'],
 });
 
 export const listResourcesQuerySchema = z.object({

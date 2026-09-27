@@ -69,6 +69,7 @@ export function createTutorService({
   llmProvider,
   embeddingProvider = null,
   lernaService = null,
+  topicDetectionService = null,
 }) {
   function parseLlmJson(raw, schema, taskName) {
     const result = schema.safeParse(raw);
@@ -110,15 +111,14 @@ export function createTutorService({
   async function createSession(user, courseId, data) {
     const course = await coursesService.ensureStudentCourseAccess(user, courseId);
     const topics = getCourseTopics(course);
-    const topic = topics.find((item) => item.id === data.topicId);
-    if (!topic) {
+    if (data.topicId && !topics.some((item) => item.id === data.topicId)) {
       throw new ValidationError('topicId must reference a topic of this course');
     }
 
     const session = await tutorSessionRepository.create({
       studentId: user.id,
       courseId: courseDocumentId(course),
-      topicId: data.topicId,
+      topicId: data.topicId ?? null,
       mode: data.mode,
       status: 'active',
       messages: [],
@@ -163,7 +163,18 @@ export function createTutorService({
     }
 
     const topics = getCourseTopics(course);
-    const topic = topics.find((item) => item.id === session.topicId.toString());
+    let topic = session.topicId ? topics.find((item) => item.id === session.topicId.toString()) : null;
+    if (!topic && topicDetectionService) {
+      // Open chat: recognise the course topic of the question to focus the
+      // answer and link the chat (only until the chat has a topic).
+      const hit = await topicDetectionService
+        .classify(courseDocumentId(course), data.content, { allowAi: !session.topicId })
+        .catch(() => null);
+      if (hit) {
+        topic = topics.find((item) => item.id === hit.topicId) ?? null;
+        if (topic && !session.topicId) await tutorSessionRepository.setTopic(session._id, hit.topicId).catch(() => null);
+      }
+    }
     const topicTitle = topic?.title ?? 'Unknown topic';
 
     // LeRna (Academic OS) is the source of truth for AI behaviour: when the
@@ -336,8 +347,11 @@ export function createTutorService({
       // the course files cover the question. Retry through the local grounded
       // pipeline (still course-material first, still abstains honestly) so the
       // answer comes back in the student's language.
-      if (user.aiLanguage && user.aiLanguage !== 'en') {
-        const retry = new AiServiceUnavailableError('AI engine abstained for a non-English answer language');
+      // Open questions (no files picked) go to the engine's web mode, which
+      // does not look at the course files; retry locally too so the course
+      // files are checked first before giving up.
+      if ((user.aiLanguage && user.aiLanguage !== 'en') || !scoped) {
+        const retry = new AiServiceUnavailableError('AI engine abstained; retrying through the course-material pipeline');
         retry.engineUp = true;
         retry.beforeRecord = false;
         throw retry;

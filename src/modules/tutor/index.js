@@ -7,6 +7,7 @@ import { llmProvider } from '../../ai/llm/index.js';
 import { embeddingProvider } from '../../ai/embeddings/index.js';
 import { lernaService } from '../lerna/index.js';
 import { createTutorService } from './tutor.service.js';
+import { topicDetectionService } from '../topics/index.js';
 import { createTutorController } from './tutor.controller.js';
 import { createTutorRouter } from './tutor.routes.js';
 import { validateSchemas } from '../../shared/validation/validate.middleware.js';
@@ -30,6 +31,7 @@ export const tutorService = createTutorService({
   llmProvider,
   embeddingProvider,
   lernaService,
+  topicDetectionService,
 });
 
 const controller = createTutorController({ tutorService });

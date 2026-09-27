@@ -28,3 +28,7 @@ export async function setTitle(sessionId, title) {
 export async function deleteById(sessionId) {
   return TutorSession.deleteOne({ _id: sessionId });
 }
+
+export async function setTopic(sessionId, topicId) {
+  return TutorSession.updateOne({ _id: sessionId, topicId: null }, { $set: { topicId } });
+}

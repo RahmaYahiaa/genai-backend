@@ -30,6 +30,10 @@ const materialSchema = new mongoose.Schema(
       ref: 'Topic',
       default: null,
     },
+    // All course topics the AI found in this file (topicId = the main one).
+    topicIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    // AI topic detection state: pending -> done | failed (retried on demand).
+    topicDetection: { type: String, enum: ['pending', 'done', 'failed', 'skipped'], default: 'pending' },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -77,6 +81,8 @@ export function toPublicMaterial(material) {
     institutionId: material.institutionId ? material.institutionId.toString() : null,
     isPersonal: Boolean(material.isPersonal),
     topicId: material.topicId ? material.topicId.toString() : null,
+    topicIds: (material.topicIds ?? []).map((id) => id.toString()),
+    topicDetection: material.topicDetection ?? 'pending',
     uploadedBy: material.uploadedBy.toString(),
     title: material.title,
     sourceType: material.sourceType,

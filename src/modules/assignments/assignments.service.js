@@ -29,6 +29,7 @@ export function createAssignmentsService({
   coursesService,
   auditService,
   domainEvents,
+  topicDetectionService = null,
 }) {
   function assertAuthoringRole(course, user) {
     const isAdmin =
@@ -154,7 +155,21 @@ export function createAssignmentsService({
 
   async function addQuestion(user, assignmentId, payload) {
     const { assignment, course } = await getAuthorizedAssignment(user, assignmentId);
-    assertTopicInCourse(course, payload.topicId);
+    // Staff no longer pick topics: the AI links the question to the course
+    // topic it assesses (an explicit topicId is still honoured).
+    if (payload.topicId) {
+      assertTopicInCourse(course, payload.topicId);
+    } else if (topicDetectionService) {
+      payload = {
+        ...payload,
+        topicId: await topicDetectionService.topicForItem(
+          course._id ?? course.id,
+          [payload.questionText, payload.modelAnswer].filter(Boolean).join('\n'),
+        ),
+      };
+    } else {
+      assertTopicInCourse(course, payload.topicId);
+    }
     const orderIndex =
       payload.orderIndex ?? (await assignmentQuestionRepository.nextOrderIndex(assignment._id));
     const questionType = payload.questionType ?? ASSIGNMENT_QUESTION_TYPES.ESSAY;
@@ -188,9 +203,15 @@ export function createAssignmentsService({
     }
     const update = {};
     if (payload.questionText !== undefined) update.questionText = payload.questionText;
-    if (payload.topicId !== undefined) {
+    if (payload.topicId) {
       assertTopicInCourse(course, payload.topicId);
       update.topicId = payload.topicId;
+    } else if (payload.questionText !== undefined && topicDetectionService) {
+      // Question text changed: re-link it to the topic it now assesses.
+      update.topicId = await topicDetectionService.topicForItem(
+        course._id ?? course.id,
+        [payload.questionText, payload.modelAnswer ?? question.modelAnswer].filter(Boolean).join('\n'),
+      );
     }
     if (payload.maxScore !== undefined) update.maxScore = payload.maxScore;
     if (payload.orderIndex !== undefined) update.orderIndex = payload.orderIndex;

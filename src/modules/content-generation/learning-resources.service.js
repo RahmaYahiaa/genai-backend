@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from '../../config/index.js';
-import { AiProviderError, ForbiddenError, NotFoundError } from '../../shared/errors/index.js';
+import { AiProviderError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/index.js';
 import { toPublicResource } from './generated-resource.model.js';
 import {
   isWebSearchEnabled,
@@ -137,9 +137,13 @@ export function createLearningResourcesService({
     return course.id ?? String(course._id);
   }
 
-  async function gatherEvidence(courseId, topic) {
+  async function gatherEvidence(courseId, topic, materialId = null) {
     try {
-      const { contexts } = await retrievalService.retrieveContext({ courseId, query: topic });
+      const { contexts } = await retrievalService.retrieveContext({
+        courseId,
+        query: topic,
+        materialIds: materialId ? [materialId] : null,
+      });
       if (contexts.length > 0) {
         return {
           knowledgeSource: 'uploaded_material',
@@ -309,6 +313,15 @@ export function createLearningResourcesService({
   async function generate(user, courseId, data) {
     const course = await resolveCourseMember(user, courseId);
     const docCourseId = courseDocumentId(course);
+    if (data.materialId && !data.topic) {
+      // "Build from this file": the file title is the subject.
+      const Material = (await import('../knowledge/material.model.js')).default;
+      const material = await Material.findById(data.materialId).select('courseId title').lean();
+      if (!material || String(material.courseId) !== String(docCourseId)) {
+        throw new ValidationError('Choose a file of this course');
+      }
+      data = { ...data, topic: material.title };
+    }
     const batchId = data.batchId ?? crypto.randomUUID().slice(0, 8);
     const focus = await learnerFocus(user, docCourseId);
     const results = [];
@@ -351,7 +364,7 @@ export function createLearningResourcesService({
     // Groq rate limits (tokens/minute) make parallel calls slower, so the pool
     // size is 1 by default; results keep request order.
     let evidencePromise = null;
-    const getEvidence = () => (evidencePromise ??= gatherEvidence(docCourseId, data.topic));
+    const getEvidence = () => (evidencePromise ??= gatherEvidence(docCourseId, data.topic, data.materialId ?? null));
     const runKind = async (kind) => {
       let record;
       let produced = null; // set only when the LLM truly produced the content
@@ -456,6 +469,9 @@ export function createLearningResourcesService({
           topic: data.topic,
           kinds: lernaKinds,
           language: data.language,
+          documentIds: data.materialId
+            ? await lernaService.ensureDocumentIds(user, course, [data.materialId]).catch(() => null)
+            : null,
         });
         resourcesByKind = response?.resources ?? {};
       } catch (error) {

@@ -192,7 +192,7 @@ export function createLernaService({ lernaClient }) {
   }
 
   /** Study tools (POST /study-tools/generate) — full 15-kind contract. */
-  async function generateStudyTools({ user, course, topic, kinds, language }) {
+  async function generateStudyTools({ user, course, topic, kinds, language, documentIds = null }) {
     const studentId = toLernaStudentId(user);
     const courseCode = course?.code ?? course?.title?.en ?? 'General';
     await ensureProfile(user, courseCode);
@@ -203,7 +203,7 @@ export function createLernaService({ lernaClient }) {
         topic,
         kinds,
         language: language ?? 'en',
-        document_ids: null,
+        document_ids: documentIds?.length ? documentIds : null,
       },
     });
   }

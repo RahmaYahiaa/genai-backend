@@ -12,7 +12,7 @@ export const tutorSessionIdParamSchema = z.object({
 });
 
 export const createTutorSessionSchema = z.object({
-  topicId: objectIdField('topicId'),
+  topicId: objectIdField('topicId').optional(),
   mode: z
     .enum([
       TUTOR_MODES.EXPLANATION,

@@ -77,9 +77,11 @@ const tutorSessionSchema = new mongoose.Schema(
       ref: 'Course',
       required: true,
     },
+    // Optional: chats are open ("ask anything"); the AI links the chat to the
+    // course topic of the first question it recognises.
     topicId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      default: null,
     },
     mode: {
       type: String,
@@ -114,7 +116,7 @@ export function toPublicTutorSession(session) {
     id: session._id.toString(),
     studentId: session.studentId.toString(),
     courseId: session.courseId.toString(),
-    topicId: session.topicId.toString(),
+    topicId: session.topicId ? session.topicId.toString() : null,
     mode: session.mode,
     title: session.title ?? null,
     status: session.status,

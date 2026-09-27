@@ -4,6 +4,7 @@ import { authenticate } from '../auth/index.js';
 import { coursesService } from '../courses/index.js';
 import { evidenceRepository } from '../learner/index.js';
 import { llmProvider } from '../../ai/llm/index.js';
+import { topicDetectionService } from '../topics/index.js';
 import { createPracticeService } from './practice.service.js';
 import { createPracticeController } from './practice.controller.js';
 import { createPracticeRouter } from './practice.routes.js';
@@ -25,6 +26,7 @@ export const practiceService = createPracticeService({
   practiceRepository,
   evidenceRepository,
   llmProvider,
+  topicDetectionService,
 });
 
 const controller = createPracticeController({ practiceService });

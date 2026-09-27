@@ -19,6 +19,10 @@ const topicSchema = new mongoose.Schema(
     // Prerequisites restricted to sibling topics of the same course, which
     // keeps the future knowledge graph cheap and locally consistent.
     prerequisiteTopicIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    // 'ai' = detected from the course files by the AI; 'manual' = typed by staff.
+    source: { type: String, enum: ['ai', 'manual'], default: 'manual' },
+    // Files the topic was found in (AI detection).
+    materialIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   },
   { _id: true },
 );
@@ -114,6 +118,8 @@ export function toPublicCourse(course) {
         description: objective.description,
       })),
       prerequisiteTopicIds: (topic.prerequisiteTopicIds ?? []).map((id) => id.toString()),
+      source: topic.source ?? 'manual',
+      materialIds: (topic.materialIds ?? []).map((id) => id.toString()),
     })),
     staff: (course.staff ?? []).map((member) => ({
       userId: member.userId.toString(),
