@@ -144,10 +144,13 @@ async function main() {
     institutionId: admin.institutionId,
     languagePreference: LANGUAGES.ENGLISH,
   });
+  // University student demo: already in CS301, and asking to join CS201
+  // (so the "join request" flow can be shown from both sides).
+  await coursesService.enroll(admin, osCourse.id, requester.id);
   await coursesService.requestEnrollment(requester, course.id, {
     note: 'I would like to join this course as an elective.',
   });
-  log('enrollment request: farida -> CS201 (pending admin approval)');
+  log('university student: farida enrolled in CS301, pending request -> CS201');
 
   // Topics are not typed by hand any more: the instructor uploads the course
   // files and the AI detects the topics from them (same path as the app).
@@ -191,7 +194,7 @@ async function main() {
       '   institution_admin  admin@menoufia.edu.eg',
       '   instructor         hassan.farid@menoufia.edu.eg',
       '   students           sara.mitchell | mona.reyes | nadia.khalil | yara.hansen | omar.diaz | mariam.taleb  (@gmail.com)',
-      '   requester          farida@menoufia.edu.eg  (pending enrollment request)',
+      '   university student farida@menoufia.edu.eg  (in CS301, pending request -> CS201)',
       '════════════════════════════════════════════════════════════',
       '',
     ].join('\n'),
