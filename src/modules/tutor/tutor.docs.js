@@ -6,14 +6,6 @@
 /**
  * @openapi
  * components:
- *   tags:
- *     - name: AI Tutor
- *       description: Grounded tutor Q&A - RAG over the course's own material with citations
- */
-
-/**
- * @openapi
- * components:
  *   schemas:
  *     TutorCitation:
  *       type: object
@@ -119,7 +111,7 @@
  *                 data:
  *                   $ref: '#/components/schemas/TutorSession'
  *       400:
- *         $ref: '#/components/responses/BadRequest'
+ *         $ref: '#/components/responses/ValidationError'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  *       404:
@@ -246,7 +238,7 @@
  *                     message:
  *                       $ref: '#/components/schemas/TutorMessage'
  *       400:
- *         $ref: '#/components/responses/BadRequest'
+ *         $ref: '#/components/responses/ValidationError'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  *       404:

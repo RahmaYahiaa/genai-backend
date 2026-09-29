@@ -6,14 +6,6 @@
 /**
  * @openapi
  * components:
- *   tags:
- *     - name: Practice Loop
- *       description: AI-generated practice on a topic; every answer writes structured learning evidence
- */
-
-/**
- * @openapi
- * components:
  *   schemas:
  *     PracticeAnswerEvaluation:
  *       type: object
@@ -146,7 +138,7 @@
  *                 data:
  *                   $ref: '#/components/schemas/PracticeSession'
  *       400:
- *         $ref: '#/components/responses/BadRequest'
+ *         $ref: '#/components/responses/ValidationError'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  *       404:
@@ -262,7 +254,7 @@
  *                             score:
  *                               type: number
  *       400:
- *         $ref: '#/components/responses/BadRequest'
+ *         $ref: '#/components/responses/ValidationError'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  *       404:

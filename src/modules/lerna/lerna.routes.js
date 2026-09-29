@@ -11,12 +11,12 @@ import { validateSchemas } from '../../shared/validation/validate.middleware.js'
  * mapped `genai-{id}` student id. Contracts here are the honest passthrough
  * of LeRna's documented endpoints (learning aggregate, preferences, SM-2).
  */
-const reviewSchema = z.object({
+export const reviewSchema = z.object({
   concept: z.string().trim().min(1).max(300),
   remembered: z.boolean(),
 });
 
-const preferencesSchema = z
+export const preferencesSchema = z
   .object({
     preferredLanguage: z
       .enum(['en', 'ar', 'fr', 'sw', 'ha', 'am', 'so', 'yo', 'ig', 'zu'])

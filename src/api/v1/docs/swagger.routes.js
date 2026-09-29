@@ -21,7 +21,7 @@ router.get('/docs.json', (req, res) => {
 router.use(
   '/docs',
   swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, { customSiteTitle: 'GenAI API Docs' }),
+  swaggerUi.setup(swaggerSpec, { customSiteTitle: 'Lerna API Docs' }),
 );
 
 export default router;

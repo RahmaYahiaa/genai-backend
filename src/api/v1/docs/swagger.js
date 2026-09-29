@@ -1,57 +1,46 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readdirSync } from 'node:fs';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { config } from '../../../config/index.js';
 import { securitySchemes } from './components/security-schemes.js';
 import { schemas } from './components/schemas.js';
 import { commonResponses } from './components/responses.js';
+import { applyRouteTexts } from './descriptions.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const srcDir = path.resolve(currentDir, '../../..');
 
+// Every tag here is used by at least one documented route (checked by
+// `npm run docs:check`). Order = order in the Swagger UI.
 const API_TAGS = [
-  { name: 'Health', description: 'Service liveness and readiness' },
-  { name: 'Auth', description: 'Registration, login, tokens, profile' },
-  {
-    name: 'Academic Structure',
-    description: 'Institutions and the faculty/department/program/semester hierarchy',
-  },
-  { name: 'Courses', description: 'Courses, topics, learning objectives, staff, enrollments' },
-  { name: 'Knowledge Base', description: 'Approved course material upload and processing' },
-  { name: 'Diagnostics', description: 'AI-driven diagnostic sessions and evidence' },
-  { name: 'Learner Model', description: 'Per-student mastery profile and learning gaps' },
-  { name: 'Tutor', description: 'Course-aware, learner-aware AI tutoring sessions' },
-  {
-    name: 'Personalization',
-    description: 'Next-best-action decisions and personalized activities',
-  },
-  {
-    name: 'Content Generation',
-    description: 'Grounded explanations, examples, quizzes, flashcards, lessons',
-  },
-  { name: 'Assessments', description: 'Assessment, practice, and reassessment flows' },
-  { name: 'Instructor Analytics', description: 'Aggregated course/topic mastery and gap insights' },
-  { name: 'Interventions', description: 'Targeted instructor interventions' },
-  {
-    name: 'Teaching Assistant',
-    description: 'Assignment submissions, AI-suggested grading, instructor approval',
-  },
-  {
-    name: 'Remedial',
-    description: 'Instructor-authored remedial content (draft, publish, audience)',
-  },
-  { name: 'Audit', description: 'Governance and audit trail' },
+  { name: 'Health', description: 'Is the server running?' },
+  { name: 'Auth', description: 'Sign up, sign in, email verification, password reset and my profile.' },
+  { name: 'Invitations', description: 'Joining through an emailed invitation link, and linking a personal account to a university.' },
+  { name: 'Academic Structure', description: 'The institution and its faculties, departments, programs and semesters.' },
+  { name: 'Courses', description: 'Courses, finding and joining them, join requests, teaching staff and topics.' },
+  { name: 'Knowledge Ingestion', description: 'Course files that the AI learns the course from.' },
+  { name: 'Learner Flow', description: '"Check my level": a short test at the start that shows what the student already knows.' },
+  { name: 'Learner Model', description: 'How well the student knows each topic and what to study next.' },
+  { name: 'AI Tutor', description: 'Chat with a tutor that answers from the course files and shows where each answer came from.' },
+  { name: 'Practice Loop', description: 'Short practice questions on one topic, marked instantly.' },
+  { name: 'Reassessment & Gain', description: '"Measure progress": test a topic again later and see how much the student improved.' },
+  { name: 'Study Tools', description: 'Summaries, notes, flashcards, quizzes, diagrams, slides and more, made from the course files.' },
+  { name: 'AI Learning', description: 'The student\'s overall progress, study plan, topics due for review, and AI language preferences.' },
+  { name: 'Assignments & Grading', description: 'Instructors create assignments, students answer them, the AI suggests a grade and the instructor decides. University courses only.' },
+  { name: 'Remedial', description: 'Extra explanations or practice the instructor sends to students.' },
+  { name: 'Instructor Analytics', description: 'How the course is going: results per topic, topics without questions, and the instructor overview.' },
+  { name: 'Audit', description: 'History of every grading decision in a course.' },
+  { name: 'Institution Admin', description: 'The admin area: people, admin team, invitations, join requests, institution profile, settings and reports.' },
 ];
 
 const definition = {
   openapi: '3.0.3',
   info: {
-    title: 'GenAI Backend API',
+    title: 'Lerna API',
     version: '0.1.0',
     description:
-      'AI Academic Learning Platform. Course-aware, learner-aware, evidence-grounded learning APIs. ' +
-      'All AI answers are grounded in approved course material; mastery is computed deterministically from structured evidence.',
+      'Lerna is an AI learning platform for universities and personal learners. ',
     license: { name: 'UNLICENSED' },
   },
   servers: [
@@ -76,7 +65,8 @@ const definition = {
  *
  * Sources:
  * - every `.js` file under `src/api/v1/routes/` (shared/health annotations)
- * - every `<module>.docs.js` file under `src/modules/` (per-module API docs)
+ * - every `<module>.docs.js` file under `src/modules/` (per-module API docs, YAML)
+ * - every `<module>.openapi.js` file under `src/modules/` (JS objects, merged below)
  */
 function collectAnnotationFiles(dir, suffix) {
   const collected = [];
@@ -91,10 +81,34 @@ function collectAnnotationFiles(dir, suffix) {
   return collected;
 }
 
-export const swaggerSpec = swaggerJsdoc({
+const jsdocSpec = swaggerJsdoc({
   definition,
   apis: [
     ...collectAnnotationFiles(path.resolve(srcDir, 'api', 'v1', 'routes'), '.js'),
     ...collectAnnotationFiles(path.resolve(srcDir, 'modules'), '.docs.js'),
   ],
 });
+
+/**
+ * `<module>.openapi.js` files export `paths` as plain objects whose request
+ * schemas are generated from the routes' zod validators. They are merged
+ * per method; documenting the same operation twice is a startup error.
+ */
+async function mergeOpenApiModules(spec) {
+  const files = collectAnnotationFiles(path.resolve(srcDir, 'modules'), '.openapi.js').sort();
+  for (const file of files) {
+    const { paths = {} } = await import(pathToFileURL(file).href);
+    for (const [route, operations] of Object.entries(paths)) {
+      spec.paths[route] ??= {};
+      for (const [method, operation] of Object.entries(operations)) {
+        if (spec.paths[route][method]) {
+          throw new Error(`OpenAPI: ${method.toUpperCase()} ${route} is documented twice (${path.basename(file)})`);
+        }
+        spec.paths[route][method] = operation;
+      }
+    }
+  }
+  return spec;
+}
+
+export const swaggerSpec = applyRouteTexts(await mergeOpenApiModules(jsdocSpec));

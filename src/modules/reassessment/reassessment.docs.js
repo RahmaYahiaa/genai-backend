@@ -6,14 +6,6 @@
 /**
  * @openapi
  * components:
- *   tags:
- *     - name: Reassessment & Gain
- *       description: Second-chance assessments on weak topics and the deterministic before/after learning-gain report
- */
-
-/**
- * @openapi
- * components:
  *   schemas:
  *     ReassessmentSession:
  *       type: object
@@ -191,7 +183,7 @@
  *                 data:
  *                   $ref: '#/components/schemas/ReassessmentSession'
  *       400:
- *         $ref: '#/components/responses/BadRequest'
+ *         $ref: '#/components/responses/ValidationError'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  *       404:
@@ -335,7 +327,7 @@
  *                         evidenceId:
  *                           type: string
  *       400:
- *         $ref: '#/components/responses/BadRequest'
+ *         $ref: '#/components/responses/ValidationError'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  *       404:

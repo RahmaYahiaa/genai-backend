@@ -1,12 +1,6 @@
 /**
  * @openapi
  * components:
- *   tags:
- *     - name: Assignments & Grading
- *       description: >-
- *         Instructor-authored assignments with AI grading and instructor approval.
- *         Institutional courses only - personal courses get 403
- *         FEATURE_NOT_AVAILABLE_FOR_PERSONAL_COURSE on every endpoint.
  *   schemas:
  *     Assignment:
  *       type: object

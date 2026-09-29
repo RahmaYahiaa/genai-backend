@@ -23,8 +23,9 @@
     "test": "node --test tests/api.integration.test.mjs tests/voice-schema.test.mjs tests/lerna.bridge.test.mjs",
     "test:grading": "node --test tests/grading.unit.test.mjs",
     "test:engine": "node --test tests/engine.live.test.mjs",
-    "test:lerbra-live": "node --test tests/live-smoke.test.mjs",
-    "test:watch": "nodemon --exec \"npm run test:grading\" --watch src --watch tests --ext js,mjs"
+    "test:lerna-live": "node --test tests/live-smoke.test.mjs",
+    "test:watch": "nodemon --exec \"npm run test:grading\" --watch src --watch tests --ext js,mjs",
+    "docs:check": "node scripts/check-api-docs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
@@ -51,6 +52,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.0.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.2",
     "eslint": "^10.9.1",

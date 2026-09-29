@@ -42,12 +42,37 @@
  *         languagePreference:
  *           type: string
  *           enum: [en, ar]
+ *           description: Interface language.
+ *         aiLanguage:
+ *           type: string
+ *           nullable: true
+ *           description: Language the AI answers in (set from AI preferences); null = follow languagePreference.
  *         isActive:
  *           type: boolean
+ *         isSuperAdmin:
+ *           type: boolean
+ *           description: Institution admins only. The super admin has every admin permission.
+ *         academicNumber:
+ *           type: string
+ *           nullable: true
+ *         studyYear:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 1
+ *           maximum: 4
+ *         emailVerified:
+ *           type: boolean
+ *           description: New self-registered accounts start false and can only verify until it is true.
  *         lastLoginAt:
  *           type: string
  *           format: date-time
  *           nullable: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  *     AuthTokens:
  *       type: object
  *       required: [accessToken, refreshToken]
