@@ -245,6 +245,11 @@ export async function findUserInInstitution(userId, institutionId) {
   };
 }
 
+export async function activateInvitedUser(userId, set) {
+  await User.updateOne({ _id: userId }, { $set: set, $inc: { tokenVersion: 1 } });
+  return User.findById(userId).select('+tokenVersion').lean();
+}
+
 export async function setUserActive(userId, isActive) {
   await User.updateOne({ _id: userId }, { $set: { isActive } });
 }
@@ -303,6 +308,32 @@ export async function insertInvitation(doc) {
   return invitation.toObject();
 }
 
+export async function findInvitationById(institutionId, invitationId) {
+  return Invitation.findOne({ _id: invitationId, institutionId }).lean();
+}
+
+export async function findInvitationByTokenHash(tokenHash) {
+  return Invitation.findOne({ tokenHash }).select('+tokenHash').lean();
+}
+
+export async function setInvitationToken(invitationId, { tokenHash, expiresAt }) {
+  await Invitation.updateOne({ _id: invitationId }, { $set: { tokenHash, expiresAt } });
+}
+
+export async function recordInvitationEmail(invitationId, emailStatus) {
+  await Invitation.updateOne(
+    { _id: invitationId },
+    { $set: { emailStatus, lastSentAt: new Date() }, $inc: { sendCount: 1 } },
+  );
+}
+
+export async function revokeInvitation(invitationId) {
+  await Invitation.updateOne(
+    { _id: invitationId, status: 'pending' },
+    { $set: { status: 'revoked', revokedAt: new Date() } },
+  );
+}
+
 export async function findPendingInvitationsByEmail(email) {
   return Invitation.find({ email: email.toLowerCase(), status: 'pending' }).lean();
 }
@@ -312,6 +343,11 @@ export async function markInvitationAccepted(invitationId, userId) {
     { _id: invitationId },
     { $set: { status: 'accepted', acceptedAt: new Date(), enrolledUserId: userId } },
   );
+}
+
+export async function findCoursesByIds(ids) {
+  if (!ids?.length) return [];
+  return Course.find({ _id: { $in: ids } }).select('code title').lean();
 }
 
 export async function findCoursesByCodes(institutionId, codes) {

@@ -5,6 +5,16 @@ import { ROLES, ACCOUNT_TYPES, MATERIAL_SOURCE_TYPES } from '../../config/consta
 import { ADMIN_AUDIT_TYPES, OFFICER_PERMISSION_KEY_VALUES, OFFICER_TEMPLATES } from './admin.constants.js';
 import { toPublicUser } from '../auth/user.model.js';
 import { issueTokenPair } from '../auth/jwt.js';
+import { config } from '../../config/index.js';
+import {
+  sendInvitationEmail,
+  sendAddedToCoursesEmail,
+  sendRequestDecisionEmail,
+  sendLinkInvitationEmail,
+  sendAccountStatusEmail,
+} from './admin-emails.js';
+
+const hashInviteToken = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
 
 const ROLE_LABEL_AR = { student: 'طالب', instructor: 'دكتور', institution_admin: 'مسؤول' };
 
@@ -78,6 +88,10 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     const target = await requireTarget(targetId, actor.institutionId);
     assertMutableTarget(actor, target);
     await adminRepository.setUserActive(targetId, isActive);
+    if (target.isActive !== isActive && target.email) {
+      const institution = await adminRepository.findInstitutionById(actor.institutionId);
+      void sendAccountStatusEmail({ user: target, isActive, institution });
+    }
     await logEvent(
       actor,
       isActive ? ADMIN_AUDIT_TYPES.USER_ACTIVATED : ADMIN_AUDIT_TYPES.USER_DEACTIVATED,
@@ -149,9 +163,20 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       keys: finalKeys,
       updatedBy: actor.id,
     });
+    const officerInvitation = await adminRepository.insertInvitation({
+      institutionId: actor.institutionId,
+      userId: created._id,
+      email: normalizedEmail,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      role: 'officer',
+      status: 'pending',
+      invitedByName: `${actor.firstName} ${actor.lastName}`,
+    });
+    const emailStatus = await issueInvitationEmail(officerInvitation, { invitedBy: `${actor.firstName} ${actor.lastName}` });
     await logEvent(actor, ADMIN_AUDIT_TYPES.OFFICER_ADDED, 'users.manage', {
-      en: `Added officer ${firstName.trim()} ${lastName.trim()} with ${template ? `the ${template.name} template` : 'a custom scope set'} — invitation activates on self-registration`,
-      ar: `إضافة المسؤول ${firstName.trim()} ${lastName.trim()} ${template ? `بقالب ${template.name}` : 'بنطاقات مخصصة'} — الدعوة تتفعل عند التسجيل الذاتي`,
+      en: `Added officer ${firstName.trim()} ${lastName.trim()} with ${template ? `the ${template.name} template` : 'a custom scope set'} — invitation emailed`,
+      ar: `إضافة المسؤول ${firstName.trim()} ${lastName.trim()} ${template ? `بقالب ${template.name}` : 'بنطاقات مخصصة'} — اتبعتت الدعوة بالإيميل`,
     });
     return {
       id: created._id.toString(),
@@ -164,6 +189,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       academicNumber: created.academicNumber ?? null,
       permissions: finalKeys,
       invited: true,
+      emailStatus,
     };
   }
 
@@ -257,6 +283,27 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     };
   }
 
+  /**
+   * Gives an invitation a fresh personal link (old links stop working),
+   * emails it, and records the result on the invitation.
+   */
+  async function issueInvitationEmail(invitation, { institution, invitedBy = null } = {}) {
+    const token = crypto.randomBytes(24).toString('base64url');
+    const expiresAt = new Date(Date.now() + config.mail.invitationTtlDays * 864e5);
+    await adminRepository.setInvitationToken(invitation._id, { tokenHash: hashInviteToken(token), expiresAt });
+    const inst = institution ?? (await adminRepository.findInstitutionById(invitation.institutionId));
+    const courses = await adminRepository.findCoursesByIds(invitation.courseIds ?? []);
+    const status = await sendInvitationEmail({
+      invitation: { ...invitation, expiresAt },
+      token,
+      institution: inst,
+      courses,
+      invitedBy: invitedBy ?? invitation.invitedByName ?? null,
+    });
+    await adminRepository.recordInvitationEmail(invitation._id, status);
+    return status;
+  }
+
   async function resolveCourseIds(institutionId, courseCodes) {
     if (!courseCodes.length) return [];
     const courses = await adminRepository.findCoursesByCodes(institutionId, courseCodes);
@@ -282,6 +329,9 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     if (!batch) throw new NotFoundError('Import batch not found');
     if (batch.status !== 'staged') throw new ValidationError('This batch has already been executed or discarded');
     const actorForEnrollment = await systemActor(actor.institutionId);
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    const toInvite = [];
+    const toNotify = [];
     let newCount = 0;
     let existingCount = 0;
     let errorCount = 0;
@@ -294,7 +344,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       if (row.verdict === 'existing') {
         const user = await adminRepository.findUserByEmail(row.email);
         if (!user) {
-          await adminRepository.insertInvitation({
+          toInvite.push(await adminRepository.insertInvitation({
             institutionId: actor.institutionId,
             batchId: batch._id,
             email: row.email,
@@ -304,12 +354,13 @@ export function createAdminService({ adminRepository, coursesService, enrollment
             courseIds,
             studyYear: row.role === 'student' ? (row.studyYear ?? null) : null,
             status: 'pending',
-          });
+          }));
           newCount += 1;
           continue;
         }
         if (row.role === 'student' && row.studyYear) await adminRepository.setStudyYear(user._id, row.studyYear);
         await enrollUserInCourseIds(actorForEnrollment, user._id.toString(), courseIds);
+        toNotify.push({ user, courseIds });
         await adminRepository.insertInvitation({
           institutionId: actor.institutionId,
           batchId: batch._id,
@@ -325,7 +376,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
         existingCount += 1;
         continue;
       }
-      await adminRepository.insertInvitation({
+      toInvite.push(await adminRepository.insertInvitation({
         institutionId: actor.institutionId,
         batchId: batch._id,
         email: row.email,
@@ -335,15 +386,28 @@ export function createAdminService({ adminRepository, coursesService, enrollment
         courseIds,
         studyYear: row.role === 'student' ? (row.studyYear ?? null) : null,
         status: 'pending',
-      });
+        invitedByName: `${actor.firstName} ${actor.lastName}`,
+      }));
       newCount += 1;
     }
     await adminRepository.markBatchConfirmed(batch._id);
+
+    // Emails: a personal link for new people, a heads-up for existing accounts.
+    const emailStats = { sent: 0, logged: 0, failed: 0 };
+    for (const invitation of toInvite) {
+      const status = await issueInvitationEmail(invitation, { institution });
+      emailStats[status] = (emailStats[status] ?? 0) + 1;
+    }
+    for (const { user, courseIds } of toNotify) {
+      const courses = await adminRepository.findCoursesByIds(courseIds);
+      const status = await sendAddedToCoursesEmail({ user, institution, courses });
+      if (status) emailStats[status] = (emailStats[status] ?? 0) + 1;
+    }
     await logEvent(actor, ADMIN_AUDIT_TYPES.BULK_IMPORTED, 'bulk.import', {
       en: `Bulk import ${batch.fileName} — ${newCount} invitations sent, ${existingCount} existing accounts enrolled directly, ${errorCount} rows rejected`,
       ar: `إدخال جماعي ${batch.fileName} — أُرسلت ${newCount} دعوة، وانضم ${existingCount} حساب قائم مباشرة، ورُفض ${errorCount} صف`,
     });
-    return { id: batchId, newCount, existingCount, errorCount };
+    return { id: batchId, newCount, existingCount, errorCount, emails: emailStats };
   }
 
   async function discardImport(actor, batchId) {
@@ -380,8 +444,123 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       status: inv.status,
       sentAt: inv.createdAt,
       acceptedAt: inv.acceptedAt ?? null,
+      expiresAt: inv.expiresAt ?? null,
+      expired: inv.status === 'pending' && inv.expiresAt ? new Date(inv.expiresAt).getTime() < now : false,
+      emailStatus: inv.emailStatus ?? null,
+      lastSentAt: inv.lastSentAt ?? null,
+      sendCount: inv.sendCount ?? 0,
       waitingDays: inv.status === 'pending' ? Math.floor((now - new Date(inv.createdAt).getTime()) / 864e5) : 0,
     }));
+  }
+
+  // ---- Email invitations (personal link) ----------------------------------
+
+  async function findUsableInvitation(token) {
+    const invitation = token ? await adminRepository.findInvitationByTokenHash(hashInviteToken(token)) : null;
+    if (!invitation) throw new NotFoundError('This invitation link is not valid. Ask your institution for a new one.');
+    if (invitation.status === 'accepted') throw new ConflictError('This invitation was already used. Sign in with your email and password.');
+    if (invitation.status === 'revoked') throw new ForbiddenError('This invitation was cancelled by your institution.');
+    if (invitation.expiresAt && new Date(invitation.expiresAt).getTime() < Date.now()) {
+      throw new ForbiddenError('This invitation has expired. Ask your institution to send it again.');
+    }
+    return invitation;
+  }
+
+  /** What the invitation page shows before the person creates the account. */
+  async function previewInvitation(token) {
+    const invitation = await findUsableInvitation(token);
+    const [institution, courses, existing] = await Promise.all([
+      adminRepository.findInstitutionById(invitation.institutionId),
+      adminRepository.findCoursesByIds(invitation.courseIds ?? []),
+      adminRepository.findUserByEmail(invitation.email),
+    ]);
+    const accountExists = Boolean(existing && (existing.isActive || existing.lastLoginAt) && !invitation.userId);
+    return {
+      email: invitation.email,
+      firstName: invitation.firstName,
+      lastName: invitation.lastName,
+      role: invitation.role,
+      institutionName: institution?.name ?? '',
+      invitedByName: invitation.invitedByName ?? null,
+      courses: courses.map((c) => ({ id: c._id.toString(), code: c.code ?? null, title: c.title })),
+      expiresAt: invitation.expiresAt ?? null,
+      accountExists,
+    };
+  }
+
+  /**
+   * Creates (or activates) the account from the invitation link. Owning the
+   * link proves the email, so the account starts verified.
+   */
+  async function acceptInvitation(token, { firstName, lastName, password, languagePreference }) {
+    const invitation = await findUsableInvitation(token);
+    const institution = await adminRepository.findInstitutionById(invitation.institutionId);
+    if (!institution || institution.isActive === false) throw new ForbiddenError('Your institution is not active on the platform right now.');
+    const passwordHash = await bcrypt.hash(password, config.jwt.bcryptRounds);
+    const names = {
+      firstName: (firstName || invitation.firstName).trim(),
+      lastName: (lastName || invitation.lastName).trim(),
+    };
+    let user;
+    if (invitation.userId) {
+      // Officer: the account already exists (inactive) with its permissions.
+      user = await adminRepository.activateInvitedUser(invitation.userId, {
+        ...names,
+        passwordHash,
+        isActive: true,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+        ...(languagePreference ? { languagePreference } : {}),
+      });
+      await adminRepository.markInvitationAccepted(invitation._id, invitation.userId);
+    } else {
+      const existing = await adminRepository.findUserByEmail(invitation.email);
+      if (existing) {
+        throw new ConflictError('You already have an account with this email. Sign in and your courses will be added.');
+      }
+      const created = await adminRepository.createUser({
+        email: invitation.email,
+        passwordHash,
+        ...names,
+        role: invitation.role === 'instructor' ? ROLES.INSTRUCTOR : ROLES.STUDENT,
+        accountType: ACCOUNT_TYPES.INSTITUTIONAL,
+        institutionId: invitation.institutionId,
+        languagePreference: languagePreference ?? institution.defaultLanguage ?? 'en',
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      });
+      await acceptPendingInvitationsForUser(created);
+      user = await adminRepository.activateInvitedUser(created._id, {});
+    }
+    if (!user) throw new NotFoundError('Account not found');
+    return { user: toPublicUser(user), tokens: issueTokenPair(user) };
+  }
+
+  async function resendInvitation(actor, invitationId) {
+    const invitation = await adminRepository.findInvitationById(actor.institutionId, invitationId);
+    if (!invitation) throw new NotFoundError('Invitation not found');
+    if (invitation.status !== 'pending') throw new ConflictError('Only waiting invitations can be sent again');
+    if (invitation.lastSentAt && Date.now() - new Date(invitation.lastSentAt).getTime() < 60 * 1000) {
+      throw new ConflictError('This invitation was just sent. Please wait a minute before sending it again.');
+    }
+    const emailStatus = await issueInvitationEmail(invitation, { invitedBy: `${actor.firstName} ${actor.lastName}` });
+    await logEvent(actor, ADMIN_AUDIT_TYPES.BULK_IMPORTED, 'bulk.import', {
+      en: `Sent the invitation to ${invitation.email} again`,
+      ar: `إعادة إرسال الدعوة إلى ${invitation.email}`,
+    });
+    return { id: invitationId, emailStatus };
+  }
+
+  async function revokeInvitation(actor, invitationId) {
+    const invitation = await adminRepository.findInvitationById(actor.institutionId, invitationId);
+    if (!invitation) throw new NotFoundError('Invitation not found');
+    if (invitation.status !== 'pending') throw new ConflictError('Only waiting invitations can be cancelled');
+    await adminRepository.revokeInvitation(invitation._id);
+    await logEvent(actor, ADMIN_AUDIT_TYPES.BULK_IMPORTED, 'bulk.import', {
+      en: `Cancelled the invitation for ${invitation.email}`,
+      ar: `إلغاء الدعوة الخاصة بـ ${invitation.email}`,
+    });
+    return { id: invitationId, status: 'revoked' };
   }
 
   async function acceptPendingInvitationsForUser(user) {
@@ -449,6 +628,9 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       },
       { requestId, decision },
     );
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    const student = request.studentId?._id ? await adminRepository.findUserById(request.studentId._id) : null;
+    void sendRequestDecisionEmail({ student, course: request.courseId, approved, note, institution });
     return result;
   }
 
@@ -466,6 +648,63 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       },
       materialSourceTypes: Object.values(MATERIAL_SOURCE_TYPES),
     };
+  }
+
+  const PROFILE_KEYS = ['shortName', 'tagline', 'about', 'mission', 'vision', 'foundedYear', 'city', 'address', 'website', 'contactEmail', 'phone', 'faculties'];
+
+  function toProfileView(institution) {
+    const p = institution.profile ?? {};
+    return {
+      id: institution._id.toString(),
+      name: institution.name,
+      country: institution.country ?? '',
+      emailDomains: institution.emailDomains ?? [],
+      shortName: p.shortName ?? '',
+      tagline: p.tagline ?? '',
+      about: p.about ?? '',
+      mission: p.mission ?? '',
+      vision: p.vision ?? '',
+      foundedYear: p.foundedYear ?? null,
+      city: p.city ?? '',
+      address: p.address ?? '',
+      website: p.website ?? '',
+      contactEmail: p.contactEmail ?? '',
+      phone: p.phone ?? '',
+      faculties: (p.faculties ?? []).map((f) => ({ name: f.name, description: f.description ?? '' })),
+      updatedAt: institution.updatedAt ?? null,
+    };
+  }
+
+  /** Institution home page content (any admin/officer of the institution). */
+  async function getProfile(actor) {
+    const institution = await adminRepository.findInstitutionById(actor.institutionId);
+    if (!institution) throw new NotFoundError('Institution not found');
+    return toProfileView(institution);
+  }
+
+  async function updateProfile(actor, patch) {
+    const set = {};
+    if (patch.name !== undefined) {
+      set.name = patch.name;
+      set.nameKey = patch.name.toLowerCase();
+    }
+    if (patch.country !== undefined) set.country = patch.country;
+    for (const key of PROFILE_KEYS) {
+      if (patch[key] !== undefined) set[`profile.${key}`] = patch[key];
+    }
+    let institution;
+    try {
+      institution = await adminRepository.updateInstitutionSettings(actor.institutionId, set);
+    } catch (error) {
+      if (error?.code === 11000) throw new ConflictError('Another institution already uses this name');
+      throw error;
+    }
+    if (!institution) throw new NotFoundError('Institution not found');
+    await logEvent(actor, ADMIN_AUDIT_TYPES.SETTINGS_CHANGED, 'settings.manage', {
+      en: 'Updated the institution profile',
+      ar: 'تحديث بيانات المؤسسة',
+    });
+    return toProfileView(institution);
   }
 
   async function getSettings(actor) {
@@ -571,6 +810,7 @@ export function createAdminService({ adminRepository, coursesService, enrollment
       throw new ConflictError('This account is already linked to your institution');
     }
     const invitedBy = { invitedById: actor.id, invitedByName: `${actor.firstName} ${actor.lastName}` };
+    void sendLinkInvitationEmail({ user: target, institution, invitedBy: invitedBy.invitedByName });
     if (existing) {
       const reset = await adminRepository.resetLinkInvitation(existing._id, invitedBy);
       return toLinkInvitationView(reset);
@@ -821,6 +1061,12 @@ export function createAdminService({ adminRepository, coursesService, enrollment
     listImports,
     listInvitations,
     acceptPendingInvitationsForUser,
+    previewInvitation,
+    getProfile,
+    updateProfile,
+    acceptInvitation,
+    resendInvitation,
+    revokeInvitation,
     listEnrollmentRequests,
     getRequestProof,
     decideEnrollmentRequest,

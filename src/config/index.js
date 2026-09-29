@@ -91,6 +91,8 @@ const envSchema = z.object({
   // Multiplies every per-endpoint limit (e.g. 10 for load tests / seeding).
   RATE_LIMIT_MULTIPLIER: z.coerce.number().positive().default(1),
   RATE_LIMIT_DISABLED: z.enum(['true', 'false']).default('false'),
+  // Optional: shared rate-limit counters across instances (e.g. redis://default:pass@host:6379).
+  REDIS_URL: z.string().optional(),
 
   // Outgoing email (Gmail SMTP by default: use a Google App Password).
   // Without SMTP_USER/SMTP_PASS emails are printed to the server log (dev).
@@ -101,6 +103,9 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().optional(),
   APP_NAME: z.string().default('Lerna'),
+  // Public address of the web app, used for links inside emails (invitations...).
+  APP_URL: z.string().url().default('http://localhost:3000'),
+  INVITATION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(14),
   EMAIL_CODE_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
 
   AUTH_FAILED_ATTEMPTS_LIMIT: z.coerce.number().int().positive().default(10),
@@ -213,6 +218,7 @@ export const config = Object.freeze({
     maxRequests: rawConfig.RATE_LIMIT_MAX_REQUESTS,
     multiplier: rawConfig.RATE_LIMIT_MULTIPLIER,
     disabled: rawConfig.RATE_LIMIT_DISABLED === 'true',
+    redisUrl: rawConfig.REDIS_URL || null,
   },
 
   mail: {
@@ -223,6 +229,8 @@ export const config = Object.freeze({
     pass: rawConfig.SMTP_PASS ? rawConfig.SMTP_PASS.replace(/\s+/g, '') : null,
     from: rawConfig.MAIL_FROM || (rawConfig.SMTP_USER ? `${rawConfig.APP_NAME} <${rawConfig.SMTP_USER}>` : `${rawConfig.APP_NAME} <no-reply@localhost>`),
     appName: rawConfig.APP_NAME,
+    appUrl: rawConfig.APP_URL.replace(/\/+$/, ''),
+    invitationTtlDays: rawConfig.INVITATION_TTL_DAYS,
     codeTtlMinutes: rawConfig.EMAIL_CODE_TTL_MINUTES,
   },
 

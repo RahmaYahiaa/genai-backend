@@ -23,6 +23,30 @@ const institutionSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     // FR-ADM-08 — platform contract end date shown on the admin health screen.
     contractEndsAt: { type: Date, default: null },
+    // Public face of the institution (shown on the institution home page).
+    profile: {
+      shortName: { type: String, trim: true, maxlength: 60, default: '' },
+      tagline: { type: String, trim: true, maxlength: 160, default: '' },
+      about: { type: String, trim: true, maxlength: 2000, default: '' },
+      mission: { type: String, trim: true, maxlength: 600, default: '' },
+      vision: { type: String, trim: true, maxlength: 600, default: '' },
+      foundedYear: { type: Number, min: 800, max: 2100, default: null },
+      city: { type: String, trim: true, maxlength: 100, default: '' },
+      address: { type: String, trim: true, maxlength: 240, default: '' },
+      website: { type: String, trim: true, maxlength: 200, default: '' },
+      contactEmail: { type: String, trim: true, maxlength: 200, default: '' },
+      phone: { type: String, trim: true, maxlength: 40, default: '' },
+      faculties: {
+        type: [
+          {
+            _id: false,
+            name: { type: String, trim: true, maxlength: 120, required: true },
+            description: { type: String, trim: true, maxlength: 300, default: '' },
+          },
+        ],
+        default: [],
+      },
+    },
     settings: {
       // When false, users cannot self-register into this institution.
       allowSelfRegistration: { type: Boolean, default: true },

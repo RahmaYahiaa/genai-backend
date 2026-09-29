@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { coursesService } from '../modules/courses/index.js';
 import { knowledgeIngestionService } from '../modules/knowledge/index.js';
 import { topicDetectionService } from '../modules/topics/index.js';
+import Institution from '../modules/academic-structure/institution.model.js';
 
 const DEMO_PASSWORD = 'Passw0rd1';
 const ADMIN_EMAIL = 'admin@menoufia.edu.eg';
@@ -52,6 +53,42 @@ async function main() {
     allowSelfRegistration: true,
     languagePreference: LANGUAGES.ENGLISH,
   });
+
+  // Institution home page content (editable later from "Institution profile").
+  await Institution.updateOne(
+    { _id: admin.institutionId },
+    {
+      $set: {
+        country: 'Egypt',
+        profile: {
+          shortName: 'MU',
+          tagline: 'Learning that follows every student, from the first lecture to graduation.',
+          about:
+            'Menoufia University is a public university in Shebin El-Kom, the capital of Menoufia Governorate in the Nile Delta. ' +
+            'It became an independent university in 1976 and today teaches students across many faculties, from engineering and medicine to computing, science, education and the humanities. ' +
+            'On Lerna, every course has its official material, a smart tutor that answers from it, and a clear picture of how each student is doing.',
+          mission:
+            'Offer every student high-quality teaching and fair assessment, and give staff the tools to notice early who needs help.',
+          vision: 'A university where every student knows what to study next, and every lecturer knows how the class is really doing.',
+          foundedYear: 1976,
+          city: 'Shebin El-Kom, Menoufia',
+          address: 'Gamal Abdel Nasser St., Shebin El-Kom, Menoufia, Egypt',
+          website: 'https://menofia.edu.eg',
+          contactEmail: ADMIN_EMAIL,
+          phone: '',
+          faculties: [
+            { name: 'Faculty of Computers and Information', description: 'Computer science, information systems and information technology.' },
+            { name: 'Faculty of Engineering', description: 'Civil, electrical, mechanical and production engineering.' },
+            { name: 'Faculty of Medicine', description: 'Medical education and the university hospitals.' },
+            { name: 'Faculty of Science', description: 'Mathematics, physics, chemistry and life sciences.' },
+            { name: 'Faculty of Commerce', description: 'Accounting, business administration and economics.' },
+            { name: 'Faculty of Education', description: 'Preparing the next generation of teachers.' },
+          ],
+        },
+      },
+    },
+  );
+  log('institution profile: about, mission, faculties');
 
   const faculty = await academicStructureService.createUnit(admin, {
     type: 'faculty',

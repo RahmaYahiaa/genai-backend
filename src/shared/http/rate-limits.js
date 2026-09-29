@@ -1,8 +1,11 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
+import { RedisStore } from 'rate-limit-redis';
+import { createClient } from 'redis';
 
 import { ERROR_CODES } from '../../config/constants.js';
 import { config } from '../../config/index.js';
+import { logger } from '../../config/logger.js';
 
 /**
  * Per-user rate limiting.
@@ -21,9 +24,36 @@ import { config } from '../../config/index.js';
  *
  * RATE_LIMIT_MULTIPLIER scales every per-endpoint number (e.g. 10 for load
  * tests or seeding); RATE_LIMIT_DISABLED=true turns limiting off (dev only).
- * Counters live in memory: with several API instances behind a load
- * balancer, plug a shared store (e.g. rate-limit-redis) into `makeLimiter`.
+ * Counters live in memory unless REDIS_URL is set (then shared via Redis).
  */
+
+// ---- Shared counters (optional) -------------------------------------------
+// With REDIS_URL set, every API instance shares the same counters and they
+// survive restarts. Without it, counters live in this process's memory.
+// If Redis goes down, requests are let through (passOnStoreError) instead of
+// failing, and the error is logged once.
+let redisClient = null;
+if (config.rateLimit.redisUrl) {
+  redisClient = createClient({ url: config.rateLimit.redisUrl });
+  let warned = false;
+  redisClient.on('error', (err) => {
+    if (!warned) logger.error({ err: err.message }, '[rate-limit] Redis unavailable - limits are paused until it reconnects');
+    warned = true;
+  });
+  redisClient.on('ready', () => {
+    warned = false;
+    logger.info('[rate-limit] Using Redis for shared rate-limit counters');
+  });
+  redisClient.connect().catch(() => {});
+}
+
+function storeFor(name) {
+  if (!redisClient) return undefined;
+  return new RedisStore({
+    prefix: `rl:${name}:`,
+    sendCommand: (...args) => redisClient.sendCommand(args),
+  });
+}
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
@@ -58,6 +88,8 @@ function makeLimiter({ name, windowMs, limit, message, key = clientKey, skipSucc
   return rateLimit({
     windowMs,
     limit,
+    store: storeFor(`${name}:${windowMs}`),
+    passOnStoreError: true,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     skipSuccessfulRequests,
@@ -131,6 +163,10 @@ const RULES = [
 
   // ---- Enrollment & admin bulk jobs ----
   { name: 'enrollment-request', method: 'POST', path: /^\/courses\/[^/]+\/(enrollment-request|catalog-enroll)$/, windows: [[HOUR, 20]] },
+  { name: 'invite-open', method: 'GET', path: /^\/invitations\/[^/]+$/, windows: [[15 * MINUTE, 30]], message: 'Too many attempts to open invitation links.' },
+  { name: 'invite-accept', method: 'POST', path: /^\/invitations\/[^/]+\/accept$/, windows: [[15 * MINUTE, 10]], message: 'Too many attempts to accept an invitation.' },
+  { name: 'invite-resend', method: 'POST', path: /^\/admin\/invitations\/[^/]+\/(resend|revoke)$/, windows: [[HOUR, 60]], message: 'You have re-sent a lot of invitations.' },
+  { name: 'profile-edit', method: 'PATCH', path: /^\/admin\/profile$/, windows: [[15 * MINUTE, 30]] },
   { name: 'bulk-import', method: 'POST', path: /^\/admin\/imports(\/[^/]+\/confirm)?$/, windows: [[HOUR, 20]] },
 ];
 
@@ -167,6 +203,8 @@ export const generalLimiter = (() => {
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     keyGenerator: (req) => `general:${clientKey(req)}`,
+    store: storeFor('general'),
+    passOnStoreError: true,
     skip: (req) => req.path === '/v1/health' || req.path === '/health',
     handler: (req, res) => {
       const resetTime = req.rateLimit?.resetTime;

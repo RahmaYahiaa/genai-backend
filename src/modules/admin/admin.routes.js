@@ -21,12 +21,16 @@ export function createAdminRouter({ controller, middlewares, guards, validators 
   router.get('/imports', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), controller.listImports);
   router.post('/imports/:batchId/confirm', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.batchIdParam, controller.confirmImport);
   router.delete('/imports/:batchId', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.batchIdParam, controller.discardImport);
+  router.post('/invitations/:invitationId/resend', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.invitationRecordParam, controller.resendInvitation);
+  router.post('/invitations/:invitationId/revoke', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.invitationRecordParam, controller.revokeInvitation);
   router.get('/invitations', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.BULK_IMPORT), validators.invitationsQuery, controller.listInvitations);
 
   router.get('/requests', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestsQuery, controller.listRequests);
   router.get('/requests/:requestId/proof', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestIdParam, controller.getRequestProof);
   router.post('/requests/:requestId/decision', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.REQUESTS_REVIEW), validators.requestIdParam, validators.decideRequest, controller.decideRequest);
 
+  router.get('/profile', guards.authenticate, middlewares.requireInstitutionAdmin, controller.getProfile);
+  router.patch('/profile', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.SETTINGS_MANAGE), validators.profilePatch, controller.updateProfile);
   router.get('/settings', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.SETTINGS_MANAGE), controller.getSettings);
   router.patch('/settings', guards.authenticate, middlewares.requirePermission(OFFICER_PERMISSION_KEYS.SETTINGS_MANAGE), validators.settingsPatch, controller.updateSettings);
 
@@ -47,5 +51,14 @@ export function createLinkConsentRouter({ controller, guards, validators }) {
   router.get('/', guards.authenticate, controller.myLinkInvitations);
   router.post('/:invitationId/respond', guards.authenticate, validators.invitationIdParam, validators.linkRespond, controller.respondLinkInvitation);
 
+  return router;
+}
+
+
+/** Public: open and accept an emailed invitation link (no account yet). */
+export function createInvitationAcceptRouter({ controller, validators }) {
+  const router = Router();
+  router.get('/:token', validators.inviteTokenParam, controller.previewInvitation);
+  router.post('/:token/accept', validators.inviteTokenParam, validators.acceptInvitation, controller.acceptInvitation);
   return router;
 }

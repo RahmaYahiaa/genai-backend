@@ -134,6 +134,58 @@ export function createAdminController({ adminService }) {
     }
   }
 
+  async function getProfile(req, res, next) {
+    try {
+      res.status(200).json({ success: true, data: await adminService.getProfile(req.user) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function updateProfile(req, res, next) {
+    try {
+      res.status(200).json({ success: true, data: await adminService.updateProfile(req.user, req.validated.body) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function previewInvitation(req, res, next) {
+    try {
+      const data = await adminService.previewInvitation(req.validated.params.token);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function acceptInvitation(req, res, next) {
+    try {
+      const data = await adminService.acceptInvitation(req.validated.params.token, req.validated.body);
+      res.status(201).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function resendInvitation(req, res, next) {
+    try {
+      const data = await adminService.resendInvitation(req.user, req.validated.params.invitationId);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function revokeInvitation(req, res, next) {
+    try {
+      const data = await adminService.revokeInvitation(req.user, req.validated.params.invitationId);
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async function listRequests(req, res, next) {
     try {
       const { status, page, limit } = req.validated.query;
@@ -257,6 +309,12 @@ export function createAdminController({ adminService }) {
   }
 
   return {
+    getProfile,
+    updateProfile,
+    previewInvitation,
+    acceptInvitation,
+    resendInvitation,
+    revokeInvitation,
     getMe,
     listUsers,
     listOfficers,

@@ -36,6 +36,24 @@ function isContractGatedUser(user) {
  * Auth business logic. Dependencies are injected so the module can be wired
  * and tested explicitly from its composition root.
  */
+/** Security notice after a password reset (best effort). */
+async function sendPasswordChangedEmail(user) {
+  const { sendTemplated, appLink, pickLang } = await import('../../shared/mail/templates.js');
+  const lang = pickLang(user.languagePreference);
+  const when = new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  return sendTemplated(user.email, {
+    lang,
+    subject: lang === 'ar' ? 'كلمة السر بتاعتك اتغيّرت' : 'Your password was changed',
+    title: lang === 'ar' ? 'كلمة السر اتغيّرت' : 'Password changed',
+    paragraphs:
+      lang === 'ar'
+        ? [`أهلاً ${user.firstName}، كلمة السر بتاعة حسابك اتغيّرت (${when}) واتعمل خروج من كل الأجهزة.`, 'لو إنت اللي غيّرتها، مش محتاج تعمل حاجة. لو مش إنت، غيّرها فورًا من "نسيت كلمة السر".']
+        : [`Hi ${user.firstName}, the password for your account was changed (${when}) and all devices were signed out.`, "If this was you, there's nothing to do. If not, reset it right away with \"Forgot password\"."],
+    button: { label: lang === 'ar' ? 'تسجيل الدخول' : 'Sign in', url: appLink('/') },
+    foot: lang === 'ar' ? 'دي رسالة أمان تلقائية.' : 'This is an automatic security notice.',
+  });
+}
+
 export function createAuthService({ repository, institutionService }) {
   async function hashPassword(plainPassword) {
     return bcrypt.hash(plainPassword, config.jwt.bcryptRounds);
@@ -232,6 +250,7 @@ export function createAuthService({ repository, institutionService }) {
       $set: { passwordHash, emailVerified: true, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
       $inc: { tokenVersion: 1 },
     });
+    void sendPasswordChangedEmail(user);
     return { reset: true };
   }
 

@@ -9,7 +9,7 @@ import { coursesService, enrollmentRequestRepository } from '../courses/index.js
 import { createAdminService } from './admin.service.js';
 import { createAdminMiddlewares } from './admin.middlewares.js';
 import { createAdminController } from './admin.controller.js';
-import { createAdminRouter, createLinkConsentRouter } from './admin.routes.js';
+import { createAdminRouter, createLinkConsentRouter, createInvitationAcceptRouter } from './admin.routes.js';
 import { validateSchemas } from '../../shared/validation/validate.middleware.js';
 import { adminSchemas } from './admin.schema.js';
 
@@ -51,6 +51,16 @@ export const adminRouter = createAdminRouter({
     invitationIdParam: validateSchemas({ params: adminSchemas.invitationIdParam }),
     linkRespond: validateSchemas({ body: adminSchemas.linkRespond }),
     auditQuery: validateSchemas({ query: adminSchemas.auditQuery }),
+    invitationRecordParam: validateSchemas({ params: adminSchemas.invitationRecordParam }),
+    profilePatch: validateSchemas({ body: adminSchemas.profilePatch }),
+  },
+});
+
+export const invitationAcceptRouter = createInvitationAcceptRouter({
+  controller,
+  validators: {
+    inviteTokenParam: validateSchemas({ params: adminSchemas.inviteTokenParam }),
+    acceptInvitation: validateSchemas({ body: adminSchemas.acceptInvitation }),
   },
 });
 

@@ -6,6 +6,49 @@ const MATERIAL_SOURCE_TYPE_VALUES = Object.values(MATERIAL_SOURCE_TYPES);
 
 const OBJECT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
+const optText = (max) => z.string().trim().max(max).optional();
+const profilePatchSchema = z
+  .object({
+    name: z.string().trim().min(2).max(200).optional(),
+    shortName: optText(60),
+    tagline: optText(160),
+    about: optText(2000),
+    mission: optText(600),
+    vision: optText(600),
+    foundedYear: z.number().int().min(800).max(2100).nullable().optional(),
+    city: optText(100),
+    country: optText(100),
+    address: optText(240),
+    website: z.union([z.literal(''), z.string().trim().url('Enter a full website address, like https://example.edu').max(200)]).optional(),
+    contactEmail: z.union([z.literal(''), z.email('Enter a valid email').max(200)]).optional(),
+    phone: optText(40),
+    faculties: z
+      .array(z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(300).optional().default('') }))
+      .max(24)
+      .optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'Nothing to update');
+
+const inviteTokenParamSchema = z.object({
+  token: z.string().trim().min(20).max(100).regex(/^[A-Za-z0-9_-]+$/, 'This invitation link is not valid'),
+});
+
+const acceptInvitationSchema = z.object({
+  firstName: z.string().trim().min(1).max(100).optional(),
+  lastName: z.string().trim().min(1).max(100).optional(),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password must be at most 72 characters')
+    .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+    .regex(/\d/, 'Password must contain at least one number'),
+  languagePreference: z.enum(['en', 'ar']).optional(),
+});
+
+const invitationRecordParamSchema = z.object({
+  invitationId: z.string().regex(OBJECT_ID_PATTERN, 'A valid invitation id is required'),
+});
+
 const userIdParamSchema = z.object({
   userId: z.string().regex(OBJECT_ID_PATTERN, 'A valid user id is required'),
 });
@@ -131,6 +174,10 @@ export const adminSchemas = {
   requestIdParam: requestIdParamSchema,
   decideRequest: decideRequestSchema,
   settingsPatch: settingsPatchSchema,
+  inviteTokenParam: inviteTokenParamSchema,
+  profilePatch: profilePatchSchema,
+  acceptInvitation: acceptInvitationSchema,
+  invitationRecordParam: invitationRecordParamSchema,
   sendLinkInvitation: sendLinkInvitationSchema,
   linkInvitationsQuery: linkInvitationsQuerySchema,
   invitationIdParam: invitationIdParamSchema,

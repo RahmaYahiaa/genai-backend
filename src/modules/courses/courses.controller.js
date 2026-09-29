@@ -1,5 +1,17 @@
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { sendSuccess, sendCreated, buildPaginationMeta } from '../../shared/http/api-response.js';
+import User from '../auth/user.model.js';
+import Course from './course.model.js';
+import Institution from '../academic-structure/institution.model.js';
+import { sendCourseAssignmentEmail } from '../admin/admin-emails.js';
+
+/** Tells an instructor they were assigned to a course (best effort, after the response). */
+async function notifyCourseAssignment(courseId, userId) {
+  const [user, course] = await Promise.all([User.findById(userId).lean(), Course.findById(courseId).select('code title institutionId').lean()]);
+  if (!user?.email || !course) return;
+  const institution = course.institutionId ? await Institution.findById(course.institutionId).select('name').lean() : null;
+  await sendCourseAssignmentEmail({ user, course, institution });
+}
 
 export function createCoursesController({ coursesService }) {
   const create = asyncHandler(async (req, res) => {
@@ -66,6 +78,9 @@ export function createCoursesController({ coursesService }) {
       req.validated.body,
     );
     sendCreated(res, member);
+    if (req.validated.body?.userId && req.validated.body.userId !== req.user.id) {
+      notifyCourseAssignment(req.validated.params.courseId, req.validated.body.userId).catch(() => undefined);
+    }
   });
 
   const removeStaff = asyncHandler(async (req, res) => {
