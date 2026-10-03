@@ -31,6 +31,7 @@ const API_TAGS = [
   { name: 'Remedial', description: 'Extra explanations or practice the instructor sends to students.' },
   { name: 'Instructor Analytics', description: 'How the course is going: results per topic, topics without questions, and the instructor overview.' },
   { name: 'Audit', description: 'History of every grading decision in a course.' },
+  { name: 'Sanad', description: 'Sanad, the study agent: understands the exam goal, reads the student\'s level, builds a day-by-day plan with AI, teaches, tests, adapts the plan and re-checks.' },
   { name: 'Institution Admin', description: 'The admin area: people, admin team, invitations, join requests, institution profile, settings and reports.' },
 ];
 
@@ -40,7 +41,9 @@ const definition = {
     title: 'Lerna API',
     version: '0.1.0',
     description:
-      'Lerna is an AI learning platform for universities and personal learners. ',
+      'Lerna is an AI learning platform for universities and personal learners. ' +
+      'Sign in with **Authorize** (paste the accessToken from /auth/login) to try the requests. ' +
+      'The AI always answers from the course files.',
     license: { name: 'UNLICENSED' },
   },
   servers: [

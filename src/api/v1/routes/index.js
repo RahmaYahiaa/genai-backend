@@ -19,6 +19,7 @@ import { adminRouter, linkConsentRouter, invitationAcceptRouter } from '../../..
 import { learningResourcesRouter } from '../../../modules/content-generation/index.js';
 import { lernaRouter } from '../../../modules/lerna/index.js';
 import { topicsRouter } from '../../../modules/topics/index.js';
+import { sanadRouter } from '../../../modules/sanad/index.js';
 
 const router = Router();
 
@@ -87,6 +88,9 @@ router.use(analyticsRouter);
 
 // Institution admin area: /admin/* (delegated permission scopes; super admin
 // bypasses keys, officers act strictly inside theirs).
+// Sanad study agent (students)
+router.use('/sanad', sanadRouter);
+
 router.use('/admin', adminRouter);
 router.use('/link-invitations', linkConsentRouter);
 

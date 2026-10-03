@@ -449,6 +449,46 @@ export const ROUTE_TEXTS = {
     summary: "Improvement report",
     description: "Before and after, per topic.",
   },
+  'POST /sanad/chat': {
+    summary: "Talk to Sanad",
+    description: "Send a message. Sanad understands what you need (a plan, what to do today, your progress) and suggests the next action.",
+  },
+  'GET /sanad/overview': {
+    summary: "My courses and plans",
+    description: "Everything the Sanad home needs.",
+  },
+  'POST /sanad/plans': {
+    summary: "Make a study plan",
+    description: "Sanad reads your level in each topic and builds a day-by-day plan to the exam.",
+  },
+  'GET /sanad/plans': {
+    summary: "My plans",
+    description: "Active and finished plans, with the next task of each.",
+  },
+  'GET /sanad/plans/{planId}': {
+    summary: "Open a plan",
+    description: "Days, tasks, what changed and why, and progress per topic.",
+  },
+  'POST /sanad/plans/{planId}/tasks/{taskId}/start': {
+    summary: "Start a task",
+    description: "Learn tasks return a lesson. Other tasks create practice or progress-check questions (answer them with the Practice or Measure Progress requests, using the returned refId).",
+  },
+  'POST /sanad/plans/{planId}/tasks/{taskId}/complete': {
+    summary: "Finish a task",
+    description: "Sanad looks at your result and adapts the rest of the plan. For learn tasks you can send feeling: clear or confused.",
+  },
+  'POST /sanad/plans/{planId}/tasks/{taskId}/skip': {
+    summary: "Skip a task",
+    description: "Marks the task as skipped.",
+  },
+  'POST /sanad/plans/{planId}/replan': {
+    summary: "Rearrange after missed days",
+    description: "Moves unfinished work forward and keeps each day within your time.",
+  },
+  'DELETE /sanad/plans/{planId}': {
+    summary: "Stop a plan",
+    description: "Archives the plan.",
+  },
   'POST /courses/{courseId}/assignments': {
     summary: "Create assignment",
     description: "Starts as a draft that students cannot see.",

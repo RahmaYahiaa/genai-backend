@@ -149,6 +149,9 @@ const RULES = [
   { name: 'reassessment-answer', method: 'POST', path: /^\/courses\/[^/]+\/reassessments\/[^/]+\/answers$/, windows: [[HOUR, 150]] },
 
   // ---- Study tools / Content Builder (one call can create up to 10 items) ----
+  { name: 'sanad-chat', method: 'POST', path: /^\/sanad\/chat$/, windows: [[10 * MINUTE, 40], [DAY, 300]], message: 'You have sent a lot of messages to Sanad.' },
+  { name: 'sanad-plan', method: 'POST', path: /^\/sanad\/plans(\/[^/]+\/replan)?$/, windows: [[HOUR, 10], [DAY, 30]], message: 'You have made a lot of study plans.' },
+  { name: 'sanad-task', method: 'POST', path: /^\/sanad\/plans\/[^/]+\/tasks\/[^/]+\/(start|complete)$/, windows: [[HOUR, 60]] },
   { name: 'study-tools', method: 'POST', path: /^\/courses\/[^/]+\/learning-resources$/, windows: [[HOUR, 12], [DAY, 60]], message: 'You have created a lot of study material.' },
 
   // ---- Files and AI topic detection ----
