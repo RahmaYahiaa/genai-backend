@@ -63,6 +63,13 @@ export function checkUnsubscribeToken(userId, token) {
 const unsubscribeUrl = (userId) => appLink(`/?stopReminders=${userId}.${unsubscribeToken(userId)}`);
 
 // ------------------------------------------------------------ content
+function duration(minutes, lang) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (lang === 'ar') return h ? `${h} ساعة${m ? ` و${m} دقيقة` : ''}` : `${m} دقيقة`;
+  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`;
+}
+
 const TEXT = {
   en: {
     subject: {
@@ -85,7 +92,7 @@ const TEXT = {
       behind: 'Coming back is the most important step.',
       exam_eve: 'You prepared for this. Trust your work.',
     },
-    row: (p) => `${p.tasks} task${p.tasks === 1 ? '' : 's'} · ${p.minutes} min · ${p.daysLeft === 0 ? 'exam today' : `${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'} left`}`,
+    chips: (p) => [`${p.tasks} task${p.tasks === 1 ? '' : 's'}`, duration(p.minutes, 'en'), p.daysLeft === 0 ? 'Exam today' : `Exam in ${p.daysLeft} day${p.daysLeft === 1 ? '' : 's'}`],
     button: 'Open my study plan',
     foot: 'You get this because study reminders are on in your profile.',
     off: 'Stop reminders',
@@ -111,7 +118,7 @@ const TEXT = {
       behind: 'الرجوع هو أهم خطوة.',
       exam_eve: 'إنت ذاكرت لده. ثق في مجهودك.',
     },
-    row: (p) => `${p.tasks} ${p.tasks === 1 ? 'مهمة' : 'مهام'} · ${p.minutes} دقيقة · ${p.daysLeft === 0 ? 'الامتحان النهارده' : `فاضل ${p.daysLeft} ${p.daysLeft === 1 ? 'يوم' : 'أيام'}`}`,
+    chips: (p) => [`${p.tasks} ${p.tasks === 1 ? 'مهمة' : 'مهام'}`, duration(p.minutes, 'ar'), p.daysLeft === 0 ? 'الامتحان النهارده' : `الامتحان بعد ${p.daysLeft} ${p.daysLeft === 1 ? 'يوم' : 'أيام'}`],
     button: 'افتح خطة المذاكرة',
     foot: 'الرسالة دي بتوصلك لأن تذكير المذاكرة شغّال في البروفايل.',
     off: 'إيقاف التذكير',
@@ -172,7 +179,7 @@ export function createReminderService({ llmProvider }) {
       subject: summary.kind === 'today' ? L.subject.today(summary.rows.reduce((n, r) => n + r.tasks, 0)) : summary.kind === 'exam_eve' ? L.subject.exam_eve(summary.examCourse) : L.subject.behind(),
       title: L.title[summary.kind](name),
       paragraphs: [L.body[summary.kind], line],
-      details: summary.rows.map((r) => [r.course, L.row(r)]),
+      cards: summary.rows.map((r) => ({ title: r.course, chips: L.chips(r) })),
       button: { label: L.button, url: appLink(`/?studyPlan=${first.planId}`) },
       foot: L.foot,
       footLink: { label: L.off, url: unsubscribeUrl(String(user._id)) },

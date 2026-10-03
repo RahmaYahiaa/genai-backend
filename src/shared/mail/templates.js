@@ -24,7 +24,7 @@ export function pickLang(value) {
   return value === 'ar' ? 'ar' : 'en';
 }
 
-export function renderEmail({ lang = 'en', subject, title, paragraphs = [], button = null, details = [], foot = '', footLink = null, institution = null }) {
+export function renderEmail({ lang = 'en', subject, title, paragraphs = [], button = null, details = [], cards = [], foot = '', footLink = null, institution = null }) {
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const align = lang === 'ar' ? 'right' : 'left';
   const app = config.mail.appName;
@@ -34,6 +34,14 @@ export function renderEmail({ lang = 'en', subject, title, paragraphs = [], butt
     ? `<tr><td style="padding:16px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F8FC;border:1px solid #E3E8F0;border-radius:10px">${details
         .map(([k, v]) => `<tr><td style="padding:9px 14px;font-size:12.5px;color:#64748B;width:38%;text-align:${align}">${esc(k)}</td><td style="padding:9px 14px;font-size:13.5px;color:#0F172A;font-weight:600;text-align:${align}">${esc(v)}</td></tr>`)
         .join('')}</table></td></tr>`
+    : '';
+  // Stacked cards: a bold title with small chips under it (reads well on phones).
+  const cardRows = cards.length
+    ? `<tr><td style="padding:16px 28px 0">${cards
+        .map((c) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F8FC;border:1px solid #E3E8F0;border-radius:12px;margin-bottom:10px"><tr><td style="padding:14px 16px 4px;font-size:15px;font-weight:700;color:#0F172A;text-align:${align}">${esc(c.title)}</td></tr><tr><td style="padding:4px 12px 12px;text-align:${align}">${(c.chips ?? [])
+          .map((chip) => `<span style="display:inline-block;margin:4px;padding:5px 10px;border-radius:999px;background:#ffffff;border:1px solid #E3E8F0;font-size:12.5px;color:#334155;white-space:nowrap">${esc(chip)}</span>`)
+          .join('')}</td></tr></table>`)
+        .join('')}</td></tr>`
     : '';
   const cta = button
     ? `<tr><td align="center" style="padding:24px 28px 6px"><a href="${esc(button.url)}" style="display:inline-block;background:#1B4DA8;color:#ffffff;text-decoration:none;font-weight:700;font-size:14.5px;padding:13px 26px;border-radius:10px">${esc(button.label)}</a></td></tr>
@@ -45,12 +53,12 @@ export function renderEmail({ lang = 'en', subject, title, paragraphs = [], butt
 <tr><td style="height:5px;background:#1B4DA8;font-size:0;line-height:0">&nbsp;</td></tr>
 <tr><td style="padding:22px 28px 6px;font-size:15px;font-weight:700;color:#1B4DA8;text-align:${align}">${header}</td></tr>
 <tr><td style="padding:8px 28px 0;font-size:21px;font-weight:700;color:#0F172A;text-align:${align}">${esc(title)}</td></tr>
-${paras}${list}${cta}
+${paras}${list}${cardRows}${cta}
 <tr><td style="padding:24px 28px 26px;font-size:12px;line-height:1.6;color:#94A3B8;text-align:${align}">${esc(foot)}${footLink ? ` <a href="${esc(footLink.url)}" style="color:#64748B;text-decoration:underline">${esc(footLink.label)}</a>` : ''}</td></tr>
 </table>
 <div style="font-size:11px;color:#A0AEC0;padding-top:14px">${esc(app)}</div>
 </td></tr></table></body></html>`;
-  const text = [title, '', ...paragraphs, ...details.map(([k, v]) => `${k}: ${v}`), button ? `\n${button.label}: ${button.url}` : '', '', foot, footLink ? `${footLink.label}: ${footLink.url}` : '']
+  const text = [title, '', ...paragraphs, ...details.map(([k, v]) => `${k}: ${v}`), ...cards.map((c) => `${c.title}: ${(c.chips ?? []).join(' · ')}`), button ? `\n${button.label}: ${button.url}` : '', '', foot, footLink ? `${footLink.label}: ${footLink.url}` : '']
     .filter((line) => line !== undefined)
     .join('\n');
   return { subject, html, text };

@@ -9,7 +9,7 @@ export const taskParamSchema = z.object({ planId: objectIdField('planId'), taskI
 export const createPlanSchema = z.object({
   courseId: objectIdField('courseId'),
   examDate: isoDate('examDate'),
-  dailyMinutes: z.coerce.number().int().min(15).max(240),
+  dailyMinutes: z.coerce.number().int().min(15).max(1440),
   topicIds: z.array(objectIdField('topicId')).max(40).optional(),
   goal: z.string().trim().max(500).optional(),
   today: isoDate('today').optional(),

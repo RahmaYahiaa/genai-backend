@@ -124,7 +124,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
       for (const t of d.tasks) {
         const topic = byId.get(t.topicId);
         if (!topic || !TASK_TYPES.includes(t.type)) continue;
-        const minutes = Math.max(5, Math.min(Number(t.minutes) || TASK_MINUTES[t.type], dailyMinutes));
+        const minutes = Math.max(5, Math.min(Number(t.minutes) || TASK_MINUTES[t.type], dailyMinutes, 240));
         if (used + minutes > dailyMinutes * 1.15 && tasks.length) continue;
         used += minutes;
         tasks.push({ type: t.type, topicId: topic.id, topicTitle: topic.title, minutes, title: (t.title || `${t.type}: ${topic.title}`).slice(0, 200), why: (t.why ?? '').slice(0, 500) });
@@ -458,7 +458,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
         courseId: course?.id ?? null,
         courseTitle: course?.title ?? null,
         examDate,
-        dailyMinutes: read.dailyMinutes ? Math.max(15, Math.min(240, Math.round(read.dailyMinutes))) : null,
+        dailyMinutes: read.dailyMinutes ? Math.max(15, Math.min(1440, Math.round(read.dailyMinutes))) : null,
         existingPlanId: course ? plans.find((p) => p.courseId === course.id)?.id ?? null : null,
       };
     } else if (read.intent === 'today') {

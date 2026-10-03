@@ -39,6 +39,7 @@ export const SANAD_PLAN_PROMPT =
   '4. When there are 3+ days, put a reassess task for the topics you worked on 1-2 days before the exam, and keep the last day light (review/quiz).\n' +
   '5. Return exactly one entry in days for EVERY date in dates (daysCount entries), in order - never stop early. Each day: total minutes <= dailyMinutes. Use only the given dates and topic ids. If time is too short, cover the topics with the biggest effect and say so in summary.\n' +
   'Task types and typical minutes: check 10, learn 20, practice 15, quiz 15, review 10, reassess 15.\n' +
+  'Long study days (dailyMinutes over 240): use longer tasks (up to 90 minutes each, at most 8 tasks a day), mix the task types, and never add filler - if the topics need less time, plan less and say so in summary.\n' +
   'Write: summary (2-3 sentences: what you found and the strategy), focusTopics (the topics that need the most work, with a short reason based on the data), ' +
   'Keep title and why short (under 12 words) so the whole plan fits. days (title = short day name like "Recursion basics", focus = one sentence), each task has a short title and why (one sentence tied to the data).\n' +
   LANGUAGE_RULE + '\n' +
