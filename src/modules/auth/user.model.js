@@ -37,6 +37,14 @@ const userSchema = new mongoose.Schema(
       enum: [...['en', 'ar', 'fr', 'sw', 'ha', 'am', 'so', 'yo', 'ig', 'zu'], null],
       default: null,
     },
+    // Sanad study reminders (profile preference). One email a day at most,
+    // only while the student has an active study plan.
+    studyReminders: {
+      enabled: { type: Boolean, default: true },
+      time: { type: String, enum: ['morning', 'noon', 'evening'], default: 'morning' },
+      timezone: { type: String, default: 'Africa/Cairo', maxlength: 64 },
+      lastSentOn: { type: String, default: null }, // YYYY-MM-DD in the student's timezone
+    },
     isActive: { type: Boolean, default: true },
     // FR-ADM-01 — the tenant's super admin; bypasses officer-scope key checks
     // and alone manages officer permission rows. Officers keep this false and

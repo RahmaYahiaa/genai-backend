@@ -3,6 +3,7 @@ import { logger } from './config/logger.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { createApp } from './app.js';
 import { verifyMailTransport } from './shared/mail/mailer.js';
+import { sanadReminders } from './modules/sanad/index.js';
 
 async function main() {
   await connectDatabase();
@@ -11,6 +12,7 @@ async function main() {
   const server = app.listen(config.port, '0.0.0.0', () => {
     logger.info(`GenAI backend listening on port ${config.port} [${config.env}]`);
     void verifyMailTransport();
+    sanadReminders.start();
   });
 
   const shutdown = (signal) => {

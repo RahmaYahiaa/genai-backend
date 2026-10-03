@@ -24,7 +24,7 @@ export function pickLang(value) {
   return value === 'ar' ? 'ar' : 'en';
 }
 
-export function renderEmail({ lang = 'en', subject, title, paragraphs = [], button = null, details = [], foot = '', institution = null }) {
+export function renderEmail({ lang = 'en', subject, title, paragraphs = [], button = null, details = [], foot = '', footLink = null, institution = null }) {
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const align = lang === 'ar' ? 'right' : 'left';
   const app = config.mail.appName;
@@ -46,11 +46,11 @@ export function renderEmail({ lang = 'en', subject, title, paragraphs = [], butt
 <tr><td style="padding:22px 28px 6px;font-size:15px;font-weight:700;color:#1B4DA8;text-align:${align}">${header}</td></tr>
 <tr><td style="padding:8px 28px 0;font-size:21px;font-weight:700;color:#0F172A;text-align:${align}">${esc(title)}</td></tr>
 ${paras}${list}${cta}
-<tr><td style="padding:24px 28px 26px;font-size:12px;line-height:1.6;color:#94A3B8;text-align:${align}">${esc(foot)}</td></tr>
+<tr><td style="padding:24px 28px 26px;font-size:12px;line-height:1.6;color:#94A3B8;text-align:${align}">${esc(foot)}${footLink ? ` <a href="${esc(footLink.url)}" style="color:#64748B;text-decoration:underline">${esc(footLink.label)}</a>` : ''}</td></tr>
 </table>
 <div style="font-size:11px;color:#A0AEC0;padding-top:14px">${esc(app)}</div>
 </td></tr></table></body></html>`;
-  const text = [title, '', ...paragraphs, ...details.map(([k, v]) => `${k}: ${v}`), button ? `\n${button.label}: ${button.url}` : '', '', foot]
+  const text = [title, '', ...paragraphs, ...details.map(([k, v]) => `${k}: ${v}`), button ? `\n${button.label}: ${button.url}` : '', '', foot, footLink ? `${footLink.label}: ${footLink.url}` : '']
     .filter((line) => line !== undefined)
     .join('\n');
   return { subject, html, text };

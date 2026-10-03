@@ -1,5 +1,5 @@
 /** OpenAPI documentation for Sanad, the study agent. */
-import { createPlanSchema, listPlansQuerySchema, completeTaskSchema, replanSchema, chatSchema } from './sanad.schema.js';
+import { createPlanSchema, listPlansQuerySchema, completeTaskSchema, replanSchema, chatSchema, reminderSettingsSchema, unsubscribeSchema } from './sanad.schema.js';
 import { op, ok, errors, body, pathParams, queryFromZod, objectId } from '../../api/v1/docs/openapi-helpers.js';
 
 const TAG = 'Sanad';
@@ -39,6 +39,7 @@ const plan = {
   },
 };
 const note = { type: 'object', nullable: true, properties: { decision: { type: 'string' }, message: { type: 'string' } } };
+const reminders = { type: 'object', properties: { enabled: { type: 'boolean' }, time: { type: 'string', enum: ['morning', 'noon', 'evening'] }, timezone: { type: 'string', example: 'Africa/Cairo' } } };
 const planAndNote = { type: 'object', properties: { plan, note } };
 
 export const paths = {
@@ -67,5 +68,15 @@ export const paths = {
   },
   '/sanad/plans/{planId}/tasks/{taskId}/skip': {
     post: op({ tag: TAG, summary: 'Skip a task', description: 'Marks it skipped.', parameters: pathParams('planId', 'taskId'), responses: { ...ok('Updated plan', { data: plan }), ...errors('ufn') } }),
+  },
+  '/sanad/reminders': {
+    get: op({ tag: TAG, summary: 'My study reminder settings', description: 'Daily reminder email.', responses: { ...ok('Settings', { data: reminders }), ...errors('uf') } }),
+    patch: op({ tag: TAG, summary: 'Change study reminders', description: 'On/off and time.', requestBody: body(reminderSettingsSchema), responses: { ...ok('Settings', { data: reminders }), ...errors('vuf') } }),
+  },
+  '/sanad/reminders/test': {
+    post: op({ tag: TAG, summary: 'Send me a reminder now', description: 'For trying it out.', responses: { ...ok('Result'), ...errors('ufr') } }),
+  },
+  '/sanad/reminders/unsubscribe': {
+    post: op({ tag: TAG, auth: false, summary: 'Stop reminders from the email link', description: 'No login needed.', requestBody: body(unsubscribeSchema), responses: { ...ok('Reminders are off'), ...errors('vfr') } }),
   },
 };

@@ -14,6 +14,7 @@ export const createPlanSchema = z.object({
   goal: z.string().trim().max(500).optional(),
   today: isoDate('today').optional(),
   language: z.string().min(2).max(5).optional(),
+  timezone: z.string().min(1).max(64).optional(),
 });
 
 export const listPlansQuerySchema = z.object({
@@ -24,6 +25,18 @@ export const listPlansQuerySchema = z.object({
 export const completeTaskSchema = z.object({
   feeling: z.enum(['clear', 'confused']).optional(),
   today: isoDate('today').optional(),
+});
+
+export const reminderSettingsSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    time: z.enum(['morning', 'noon', 'evening']).optional(),
+    timezone: z.string().min(1).max(64).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: 'Send at least one setting' });
+
+export const unsubscribeSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{24}\.[a-f0-9]{32}$/i, 'This link is not valid'),
 });
 
 export const replanSchema = z.object({ today: isoDate('today').optional() });

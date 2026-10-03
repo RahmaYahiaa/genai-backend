@@ -489,6 +489,22 @@ export const ROUTE_TEXTS = {
     summary: "Stop a plan",
     description: "Archives the plan.",
   },
+  'GET /sanad/reminders': {
+    summary: "My study reminder settings",
+    description: "Whether Sanad emails you a daily study reminder, and at what time (morning 9:00, noon 14:00, evening 20:00 in your timezone).",
+  },
+  'PATCH /sanad/reminders': {
+    summary: "Change study reminders",
+    description: "Turn the daily reminder email on or off, or change its time. Send only what you want to change.",
+  },
+  'POST /sanad/reminders/test': {
+    summary: "Send me a reminder now",
+    description: "Sends today's reminder right away so you can see it. Nothing is sent when you have no active plan or nothing is due.",
+  },
+  'POST /sanad/reminders/unsubscribe': {
+    summary: "Stop reminders from the email link",
+    description: "Used by the \"Stop reminders\" link in the email. Works without logging in.",
+  },
   'POST /courses/{courseId}/assignments': {
     summary: "Create assignment",
     description: "Starts as a draft that students cannot see.",

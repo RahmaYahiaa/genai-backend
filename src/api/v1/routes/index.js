@@ -19,13 +19,15 @@ import { adminRouter, linkConsentRouter, invitationAcceptRouter } from '../../..
 import { learningResourcesRouter } from '../../../modules/content-generation/index.js';
 import { lernaRouter } from '../../../modules/lerna/index.js';
 import { topicsRouter } from '../../../modules/topics/index.js';
-import { sanadRouter } from '../../../modules/sanad/index.js';
+import { sanadRouter, sanadPublicRouter } from '../../../modules/sanad/index.js';
 
 const router = Router();
 
 // Public invitation links sent by email (/?invite=TOKEN in the web app).
 // Mounted first: some feature routers below apply authentication router-wide.
 router.use('/invitations', invitationAcceptRouter);
+// Public "Stop reminders" link from Sanad emails.
+router.use('/sanad', sanadPublicRouter);
 
 router.use(healthRoutes);
 router.use('/auth', authRouter);
@@ -86,11 +88,11 @@ router.use(auditRouter);
 // debounced domain-event recompute).
 router.use(analyticsRouter);
 
-// Institution admin area: /admin/* (delegated permission scopes; super admin
-// bypasses keys, officers act strictly inside theirs).
 // Sanad study agent (students)
 router.use('/sanad', sanadRouter);
 
+// Institution admin area: /admin/* (delegated permission scopes; super admin
+// bypasses keys, officers act strictly inside theirs).
 router.use('/admin', adminRouter);
 router.use('/link-invitations', linkConsentRouter);
 
