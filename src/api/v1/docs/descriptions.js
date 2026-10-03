@@ -450,16 +450,16 @@ export const ROUTE_TEXTS = {
     description: "Before and after, per topic.",
   },
   'POST /sanad/chat': {
-    summary: "Talk to Sanad",
-    description: "Send a message. Sanad understands what you need (a plan, what to do today, your progress) and suggests the next action.",
+    summary: "Talk to Plany",
+    description: "Send a message. Plany understands what you need (a plan, what to do today, your progress) and suggests the next action.",
   },
   'GET /sanad/overview': {
     summary: "My courses and plans",
-    description: "Everything the Sanad home needs.",
+    description: "Everything the Plany home needs.",
   },
   'POST /sanad/plans': {
     summary: "Make a study plan",
-    description: "Sanad reads your level in each topic and builds a day-by-day plan to the exam.",
+    description: "Plany reads your level in each topic and builds a day-by-day plan to the exam.",
   },
   'GET /sanad/plans': {
     summary: "My plans",
@@ -475,7 +475,7 @@ export const ROUTE_TEXTS = {
   },
   'POST /sanad/plans/{planId}/tasks/{taskId}/complete': {
     summary: "Finish a task",
-    description: "Sanad looks at your result and adapts the rest of the plan. For learn tasks you can send feeling: clear or confused.",
+    description: "Plany looks at your result and adapts the rest of the plan. For learn tasks you can send feeling: clear or confused.",
   },
   'POST /sanad/plans/{planId}/tasks/{taskId}/skip': {
     summary: "Skip a task",
@@ -491,7 +491,7 @@ export const ROUTE_TEXTS = {
   },
   'GET /sanad/reminders': {
     summary: "My study reminder settings",
-    description: "Whether Sanad emails you a daily study reminder, and at what time (morning 9:00, noon 14:00, evening 20:00 in your timezone).",
+    description: "Whether Plany emails you a daily study reminder, and at what time (HH:MM in your timezone, e.g. 21:30).",
   },
   'PATCH /sanad/reminders': {
     summary: "Change study reminders",

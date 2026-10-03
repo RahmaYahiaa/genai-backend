@@ -26,7 +26,7 @@ const router = Router();
 // Public invitation links sent by email (/?invite=TOKEN in the web app).
 // Mounted first: some feature routers below apply authentication router-wide.
 router.use('/invitations', invitationAcceptRouter);
-// Public "Stop reminders" link from Sanad emails.
+// Public "Stop reminders" link from Plany emails.
 router.use('/sanad', sanadPublicRouter);
 
 router.use(healthRoutes);
@@ -88,7 +88,7 @@ router.use(auditRouter);
 // debounced domain-event recompute).
 router.use(analyticsRouter);
 
-// Sanad study agent (students)
+// Plany study agent (students)
 router.use('/sanad', sanadRouter);
 
 // Institution admin area: /admin/* (delegated permission scopes; super admin

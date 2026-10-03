@@ -1,4 +1,4 @@
-// Last-resort logic for Sanad, used ONLY when no AI is reachable (LeRna and the
+// Last-resort logic for Plany, used ONLY when no AI is reachable (LeRna and the
 // backend AI are both down). Simple, predictable rules so the agent keeps
 // working; the AI versions in sanad.service.js are always tried first.
 
@@ -32,7 +32,7 @@ const T = {
       today: (task) => (task ? `Your next step: ${task}.` : 'You have no plan yet. Tell me about your next exam and I will build one.'),
       progress: 'Here is your progress. Open My Progress for the full picture.',
       explain: 'The AI Tutor is the best place for that. It explains from your course files.',
-      other: 'I am Sanad, your study coach. Tell me about your next exam, or ask what to study today.',
+      other: 'I am Plany, your study coach. Tell me about your next exam, or ask what to study today.',
     },
   },
   ar: {
@@ -61,7 +61,7 @@ const T = {
       today: (task) => (task ? `خطوتك الجاية: ${task}.` : 'لسه معندكش خطة. قولّي على امتحانك الجاي وأنا أعملها.'),
       progress: 'ده تقدّمك. افتح "تقدّمي" عشان تشوف الصورة كاملة.',
       explain: 'المعلم الذكي أحسن مكان لده، بيشرح من ملفات المادة.',
-      other: 'أنا سند، مدرّب المذاكرة بتاعك. قولّي على امتحانك الجاي، أو اسألني أذاكر إيه النهارده.',
+      other: 'أنا بلاني، مدرّب المذاكرة بتاعك. قولّي على امتحانك الجاي، أو اسألني أذاكر إيه النهارده.',
     },
   },
 };

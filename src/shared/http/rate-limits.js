@@ -149,7 +149,7 @@ const RULES = [
   { name: 'reassessment-answer', method: 'POST', path: /^\/courses\/[^/]+\/reassessments\/[^/]+\/answers$/, windows: [[HOUR, 150]] },
 
   // ---- Study tools / Content Builder (one call can create up to 10 items) ----
-  { name: 'sanad-chat', method: 'POST', path: /^\/sanad\/chat$/, windows: [[10 * MINUTE, 40], [DAY, 300]], message: 'You have sent a lot of messages to Sanad.' },
+  { name: 'sanad-chat', method: 'POST', path: /^\/sanad\/chat$/, windows: [[10 * MINUTE, 40], [DAY, 300]], message: 'You have sent a lot of messages to Plany.' },
   { name: 'sanad-plan', method: 'POST', path: /^\/sanad\/plans(\/[^/]+\/replan)?$/, windows: [[HOUR, 10], [DAY, 30]], message: 'You have made a lot of study plans.' },
   { name: 'sanad-reminder-test', method: 'POST', path: /^\/sanad\/reminders\/test$/, windows: [[HOUR, 5]], message: 'You have sent a lot of test reminders.' },
   { name: 'sanad-unsubscribe', method: 'POST', path: /^\/sanad\/reminders\/unsubscribe$/, windows: [[HOUR, 30]] },

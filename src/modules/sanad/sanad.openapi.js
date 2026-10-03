@@ -1,8 +1,8 @@
-/** OpenAPI documentation for Sanad, the study agent. */
+/** OpenAPI documentation for Plany, the study agent. */
 import { createPlanSchema, listPlansQuerySchema, completeTaskSchema, replanSchema, chatSchema, reminderSettingsSchema, unsubscribeSchema } from './sanad.schema.js';
 import { op, ok, errors, body, pathParams, queryFromZod, objectId } from '../../api/v1/docs/openapi-helpers.js';
 
-const TAG = 'Sanad';
+const TAG = 'Plany';
 const task = {
   type: 'object',
   properties: {
@@ -39,15 +39,15 @@ const plan = {
   },
 };
 const note = { type: 'object', nullable: true, properties: { decision: { type: 'string' }, message: { type: 'string' } } };
-const reminders = { type: 'object', properties: { enabled: { type: 'boolean' }, time: { type: 'string', enum: ['morning', 'noon', 'evening'] }, timezone: { type: 'string', example: 'Africa/Cairo' } } };
+const reminders = { type: 'object', properties: { enabled: { type: 'boolean' }, time: { type: 'string', example: '21:30', description: '24-hour HH:MM in the student timezone (the app shows it as 12-hour with AM/PM).' }, timezone: { type: 'string', example: 'Africa/Cairo' } } };
 const planAndNote = { type: 'object', properties: { plan, note } };
 
 export const paths = {
   '/sanad/chat': {
-    post: op({ tag: TAG, summary: 'Talk to Sanad', description: 'Send a message.', requestBody: body(chatSchema), responses: { ...ok('Reply', { data: { type: 'object', properties: { reply: { type: 'string' }, intent: { type: 'string' }, action: { type: 'object', nullable: true } } } }), ...errors('vufr') } }),
+    post: op({ tag: TAG, summary: 'Talk to Plany', description: 'Send a message.', requestBody: body(chatSchema), responses: { ...ok('Reply', { data: { type: 'object', properties: { reply: { type: 'string' }, intent: { type: 'string' }, action: { type: 'object', nullable: true } } } }), ...errors('vufr') } }),
   },
   '/sanad/overview': {
-    get: op({ tag: TAG, summary: 'My courses and plans', description: 'For the Sanad home.', responses: { ...ok('Courses and plans'), ...errors('uf') } }),
+    get: op({ tag: TAG, summary: 'My courses and plans', description: 'For the Plany home.', responses: { ...ok('Courses and plans'), ...errors('uf') } }),
   },
   '/sanad/plans': {
     post: op({ tag: TAG, summary: 'Make a study plan', description: 'Builds the plan.', requestBody: body(createPlanSchema), responses: { ...ok('The plan', { status: 201, data: plan }), ...errors('vufnr') } }),
@@ -64,7 +64,7 @@ export const paths = {
     post: op({ tag: TAG, summary: 'Start a task', description: 'Prepares the lesson or the questions.', parameters: pathParams('planId', 'taskId'), responses: { ...ok('Plan and task', { data: { type: 'object', properties: { plan, task } } }), ...errors('vufnr') } }),
   },
   '/sanad/plans/{planId}/tasks/{taskId}/complete': {
-    post: op({ tag: TAG, summary: 'Finish a task', description: 'Sanad adapts the plan.', parameters: pathParams('planId', 'taskId'), requestBody: body(completeTaskSchema), responses: { ...ok('Updated plan', { data: planAndNote }), ...errors('vufnr') } }),
+    post: op({ tag: TAG, summary: 'Finish a task', description: 'Plany adapts the plan.', parameters: pathParams('planId', 'taskId'), requestBody: body(completeTaskSchema), responses: { ...ok('Updated plan', { data: planAndNote }), ...errors('vufnr') } }),
   },
   '/sanad/plans/{planId}/tasks/{taskId}/skip': {
     post: op({ tag: TAG, summary: 'Skip a task', description: 'Marks it skipped.', parameters: pathParams('planId', 'taskId'), responses: { ...ok('Updated plan', { data: plan }), ...errors('ufn') } }),

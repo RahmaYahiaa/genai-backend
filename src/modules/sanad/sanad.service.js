@@ -64,11 +64,11 @@ export function createSanadService({ coursesService, learnerModelService, topicD
         if (!parsed.success) throw new Error(`${task}: output did not match the expected shape`);
         return { data: parsed.data, source: llmProvider.lastSource === 'lerna' ? 'lerna' : 'ai' };
       } catch (error) {
-        logger.warn({ task, attempt, err: String(error.message).slice(0, 300) }, 'Sanad AI step failed');
+        logger.warn({ task, attempt, err: String(error.message).slice(0, 300) }, 'Plany AI step failed');
         if (attempt === 1) await new Promise((r) => setTimeout(r, 2500));
       }
     }
-    logger.warn({ task }, 'Sanad: no AI available, using the rule-based fallback');
+    logger.warn({ task }, 'Plany: no AI available, using the rule-based fallback');
     return null;
   }
 
@@ -201,7 +201,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
     const day0 = today || todayIso();
     if (daysBetween(day0, examDate) < 0) throw new ValidationError('The exam date has already passed');
     const { course, topics, commonMistakes } = await diagnose(user, courseId, topicIds);
-    if (!topics.length) throw new ValidationError('This course has no topics yet. Add course files first so Sanad can plan.');
+    if (!topics.length) throw new ValidationError('This course has no topics yet. Add course files first so Plany can plan.');
     const dates = studyDates(day0, examDate);
     const language = languageOf(user, hint, goal ?? '');
 
@@ -314,7 +314,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
         try {
           started = { kind: 'reassessment', session: await reassessmentService.startSession(user, courseId, { topicId: String(task.topicId), questionsCount }) };
         } catch (error) {
-          logger.info({ err: error.message }, 'Sanad: progress check not possible yet, using practice');
+          logger.info({ err: error.message }, 'Plany: progress check not possible yet, using practice');
         }
       }
       if (!started) started = { kind: 'practice', session: await practiceService.startSession(user, courseId, { topicId: String(task.topicId), questionsCount }) };

@@ -14,7 +14,7 @@ import { createSanadService } from './sanad.service.js';
 import { createReminderService } from './sanad.reminders.js';
 import { planIdParamSchema, taskParamSchema, createPlanSchema, listPlansQuerySchema, completeTaskSchema, replanSchema, chatSchema, reminderSettingsSchema, unsubscribeSchema } from './sanad.schema.js';
 
-// Sanad: the study agent. Understands the goal, reads the student's level,
+// Plany: the study agent. Understands the goal, reads the student's level,
 // builds a day-by-day plan with AI, teaches, tests, adapts and re-checks.
 export const sanadService = createSanadService({
   coursesService,
@@ -30,7 +30,7 @@ export const sanadService = createSanadService({
 // Daily study reminder emails (turned on/off from Profile > Preferences).
 export const sanadReminders = createReminderService({ llmProvider });
 
-const studentsOnly = (req, _res, next) => (req.user?.role === 'student' ? next() : next(new ForbiddenError('Sanad is available to students')));
+const studentsOnly = (req, _res, next) => (req.user?.role === 'student' ? next() : next(new ForbiddenError('Plany is available to students')));
 const v = validateSchemas;
 const s = sanadService;
 

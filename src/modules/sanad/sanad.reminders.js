@@ -7,16 +7,19 @@ import { sendTemplated, appLink } from '../../shared/mail/templates.js';
 import { SANAD_REMINDER_PROMPT } from './sanad.prompts.js';
 
 /**
- * Sanad study reminders.
- * Once a day, at the time the student picked (morning / noon / evening in
- * their own timezone), a student with an active study plan gets ONE email:
+ * Plany study reminders.
+ * Once a day, at the time the student picked (HH:MM in their own timezone), a student with an active study plan gets ONE email:
  *   - exam_eve : the exam is tomorrow -> last review
- *   - behind   : tasks from past days are still open -> come back, Sanad re-plans
+ *   - behind   : tasks from past days are still open -> come back, Plany re-plans
  *   - today    : today's tasks are waiting
  * Turned off from Profile > Preferences, or from the link in every email.
  */
 
-export const REMINDER_HOURS = { morning: 9, noon: 14, evening: 20 };
+// Older settings stored a named slot; map them to a clock time.
+const LEGACY_TIMES = { morning: '09:00', noon: '14:00', evening: '20:00' };
+export const DEFAULT_REMINDER_TIME = '09:00';
+export const reminderTime = (value) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(value ?? '') ? value : LEGACY_TIMES[value] ?? DEFAULT_REMINDER_TIME);
+const toMinutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const CHECK_EVERY_MS = 10 * 60 * 1000;
 
 // ------------------------------------------------------------ time helpers
@@ -32,11 +35,11 @@ export function validTimezone(tz) {
 function localNow(tz) {
   const zone = validTimezone(tz) ? tz : 'Africa/Cairo';
   const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
       .formatToParts(new Date())
       .map((p) => [p.type, p.value]),
   );
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), minutes: Number(parts.hour) * 60 + Number(parts.minute) };
 }
 
 const addDays = (iso, n) => {
@@ -63,9 +66,9 @@ const unsubscribeUrl = (userId) => appLink(`/?stopReminders=${userId}.${unsubscr
 const TEXT = {
   en: {
     subject: {
-      today: (n) => `Sanad: ${n} study task${n === 1 ? '' : 's'} for today`,
-      behind: () => "Sanad: let's get your plan back on track",
-      exam_eve: (c) => `Sanad: your ${c} exam is tomorrow`,
+      today: (n) => `Plany: ${n} study task${n === 1 ? '' : 's'} for today`,
+      behind: () => "Plany: let's get your plan back on track",
+      exam_eve: (c) => `Plany: your ${c} exam is tomorrow`,
     },
     title: {
       today: (name) => `Good to see you, ${name}. Here is today's plan.`,
@@ -74,7 +77,7 @@ const TEXT = {
     },
     body: {
       today: 'Short focused sessions every day add up. Open your plan and start with the first task.',
-      behind: "You missed some tasks, and that's okay. Open your plan and Sanad will spread what's left over the days you still have.",
+      behind: "You missed some tasks, and that's okay. Open your plan and Plany will spread what's left over the days you still have.",
       exam_eve: 'Today is for a light final review. Go over your weak points once more and get a good night of sleep.',
     },
     line: {
@@ -89,9 +92,9 @@ const TEXT = {
   },
   ar: {
     subject: {
-      today: (n) => `سند: عندك ${n} ${n === 1 ? 'مهمة' : 'مهام'} مذاكرة النهارده`,
-      behind: () => 'سند: يلا نرجّع خطتك لمسارها',
-      exam_eve: (c) => `سند: امتحان ${c} بكرة`,
+      today: (n) => `بلاني: عندك ${n} ${n === 1 ? 'مهمة' : 'مهام'} مذاكرة النهارده`,
+      behind: () => 'بلاني: يلا نرجّع خطتك لمسارها',
+      exam_eve: (c) => `بلاني: امتحان ${c} بكرة`,
     },
     title: {
       today: (name) => `أهلاً يا ${name}، دي خطة النهارده.`,
@@ -100,7 +103,7 @@ const TEXT = {
     },
     body: {
       today: 'جلسات قصيرة كل يوم بتفرق جداً. افتح خطتك وابدأ بأول مهمة.',
-      behind: 'فاتتك شوية مهام، وده عادي. افتح خطتك وسند هيوزّع الباقي على الأيام اللي فاضلة.',
+      behind: 'فاتتك شوية مهام، وده عادي. افتح خطتك وبلاني هيوزّع الباقي على الأيام اللي فاضلة.',
       exam_eve: 'النهارده للمراجعة الخفيفة. عدّي على نقاط ضعفك مرة كمان ونام كويس.',
     },
     line: {
@@ -153,7 +156,7 @@ export function createReminderService({ llmProvider }) {
       const line = typeof raw?.line === 'string' ? raw.line.trim() : '';
       if (line && line.length <= 240) return line;
     } catch (error) {
-      logger.debug({ err: String(error.message).slice(0, 200) }, 'Sanad reminder line: AI unavailable, using the fixed line');
+      logger.debug({ err: String(error.message).slice(0, 200) }, 'Plany reminder line: AI unavailable, using the fixed line');
     }
     return TEXT[lang].line[summary.kind];
   }
@@ -192,7 +195,7 @@ export function createReminderService({ llmProvider }) {
     }
     const email = await buildEmail(user, summary);
     const status = await sendTemplated(user.email, email);
-    logger.info({ userId: String(user._id), kind: summary.kind, status }, 'Sanad reminder email');
+    logger.info({ userId: String(user._id), kind: summary.kind, status }, 'Plany reminder email');
     return { sent: status !== 'failed', status, kind: summary.kind };
   }
 
@@ -205,14 +208,14 @@ export function createReminderService({ llmProvider }) {
       .lean();
     let sent = 0;
     for (const user of users) {
-      const { date, hour } = localNow(user.studyReminders?.timezone);
+      const { date, minutes } = localNow(user.studyReminders?.timezone);
       if (user.studyReminders?.lastSentOn === date) continue;
-      if (hour < (REMINDER_HOURS[user.studyReminders?.time] ?? REMINDER_HOURS.morning)) continue;
+      if (minutes < toMinutes(reminderTime(user.studyReminders?.time))) continue;
       try {
         const r = await remindUser(user);
         if (r.sent) sent += 1;
       } catch (error) {
-        logger.warn({ userId: String(user._id), err: error.message }, 'Sanad reminder failed for one student');
+        logger.warn({ userId: String(user._id), err: error.message }, 'Plany reminder failed for one student');
       }
     }
     return sent;
@@ -221,11 +224,11 @@ export function createReminderService({ llmProvider }) {
   let timer = null;
   function start() {
     if (timer || config.env === 'test') return;
-    const tick = () => void runOnce().catch((error) => logger.warn({ err: error.message }, 'Sanad reminders pass failed'));
+    const tick = () => void runOnce().catch((error) => logger.warn({ err: error.message }, 'Plany reminders pass failed'));
     setTimeout(tick, 60_000).unref();
     timer = setInterval(tick, CHECK_EVERY_MS);
     timer.unref();
-    logger.info('Sanad study reminders: scheduler started');
+    logger.info('Plany study reminders: scheduler started');
   }
   function stop() {
     if (timer) clearInterval(timer);
@@ -235,7 +238,7 @@ export function createReminderService({ llmProvider }) {
   // -------------------------------------------------- settings (profile)
   const view = (u) => ({
     enabled: u.studyReminders?.enabled !== false,
-    time: u.studyReminders?.time ?? 'morning',
+    time: reminderTime(u.studyReminders?.time),
     timezone: u.studyReminders?.timezone ?? 'Africa/Cairo',
   });
 

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-// A study plan made by Sanad for one student, one course and one exam date.
+// A study plan made by Plany for one student, one course and one exam date.
 export const TASK_TYPES = ['check', 'learn', 'practice', 'quiz', 'review', 'reassess'];
 export const PLAN_SOURCES = ['lerna', 'ai', 'rules'];
 

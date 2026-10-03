@@ -37,11 +37,11 @@ const userSchema = new mongoose.Schema(
       enum: [...['en', 'ar', 'fr', 'sw', 'ha', 'am', 'so', 'yo', 'ig', 'zu'], null],
       default: null,
     },
-    // Sanad study reminders (profile preference). One email a day at most,
+    // Plany study reminders (profile preference). One email a day at most,
     // only while the student has an active study plan.
     studyReminders: {
       enabled: { type: Boolean, default: true },
-      time: { type: String, enum: ['morning', 'noon', 'evening'], default: 'morning' },
+      time: { type: String, match: /^([01]\d|2[0-3]):[0-5]\d$/, default: '09:00' }, // HH:MM, 24h, student's timezone
       timezone: { type: String, default: 'Africa/Cairo', maxlength: 64 },
       lastSentOn: { type: String, default: null }, // YYYY-MM-DD in the student's timezone
     },
