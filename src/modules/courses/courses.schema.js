@@ -76,7 +76,7 @@ const enrollmentRequestIdParamSchema = z.object({
 const requestProofSchema = z.object({
   fileName: z.string().trim().min(1).max(200),
   mimeType: z.enum(['image/png', 'image/jpeg', 'application/pdf']),
-  data: z.string().min(16, 'A valid base64 file is required').max(2100000, 'Proof files must be 1.5 MB or smaller'),
+  data: z.string().min(16, 'A valid base64 file is required').max(2100000, 'Proof files must be 1.5 MB or smaller').regex(/^[A-Za-z0-9+/]+={0,2}$/, 'A valid base64 file is required'),
 });
 
 const requestEnrollmentSchema = z.object({

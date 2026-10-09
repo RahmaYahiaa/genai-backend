@@ -6,6 +6,7 @@ import {
   NotFoundError,
   ValidationError,
 } from '../../shared/errors/index.js';
+import { inspectFile, PROOF_EXTENSIONS } from '../../shared/security/file-guard.js';
 import { toPublicCourse } from './course.model.js';
 import { toPublicEnrollment } from './enrollment.model.js';
 import { toPublicEnrollmentRequest } from './enrollment-request.model.js';
@@ -650,6 +651,16 @@ export function createCoursesService({
   }
 
   async function requestEnrollment(user, courseId, { note, proof }) {
+    if (proof) {
+      const verdict = inspectFile({
+        fileName: proof.fileName,
+        buffer: Buffer.from(proof.data, 'base64'),
+        allowed: PROOF_EXTENSIONS,
+      });
+      if (!verdict.ok || verdict.mimeType !== proof.mimeType) {
+        throw new ValidationError(verdict.ok ? 'The proof file type does not match its content' : verdict.reason);
+      }
+    }
     assertCatalogStudent(user);
     const course = await getCourseOrNotFound(courseId);
     if (course.isPersonal) {

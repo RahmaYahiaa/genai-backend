@@ -1,3 +1,4 @@
+import { trustedMimeFor } from '../../shared/security/file-guard.js';
 import { asyncHandler } from '../../shared/utils/async-handler.js';
 import { sendSuccess, sendCreated, buildPaginationMeta } from '../../shared/http/api-response.js';
 
@@ -50,6 +51,10 @@ export function createKnowledgeIngestionController({ knowledgeIngestionService }
       req.validated.params.courseId,
       req.validated.params.materialId,
     );
+    // Files are always downloaded, never run or rendered inside our site.
+    res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.type(trustedMimeFor(material.originalName));
     await new Promise((resolve, reject) => {
       res.download(absolutePath, material.originalName ?? 'material', (error) =>
         error ? reject(error) : resolve(),

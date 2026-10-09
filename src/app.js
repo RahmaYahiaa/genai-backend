@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import pinoHttp from 'pino-http';
+import { sanitizeInput } from './shared/security/sanitize-input.js';
 import { generalLimiter, endpointLimiter } from './shared/http/rate-limits.js';
 
 import { config } from './config/index.js';
@@ -37,7 +38,8 @@ export function createApp() {
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json({ limit: '3mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+  app.use(sanitizeInput);
   app.use(compression());
 
   // Per-user rate limits (see shared/http/rate-limits.js for the numbers).
