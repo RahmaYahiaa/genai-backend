@@ -5,7 +5,6 @@ import compression from 'compression';
 import pinoHttp from 'pino-http';
 import { sanitizeInput } from './shared/security/sanitize-input.js';
 import { generalLimiter, endpointLimiter } from './shared/http/rate-limits.js';
-
 import { config } from './config/index.js';
 import { logger } from './config/logger.js';
 import { requestContext } from './api/v1/middlewares/request-context.middleware.js';
