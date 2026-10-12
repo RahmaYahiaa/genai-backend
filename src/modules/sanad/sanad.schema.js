@@ -25,7 +25,11 @@ export const listPlansQuerySchema = z.object({
 export const completeTaskSchema = z.object({
   feeling: z.enum(['clear', 'confused']).optional(),
   today: isoDate('today').optional(),
+  language: z.string().min(2).max(5).optional(),
 });
+
+// The language the student is reading the site in. Plany writes in it.
+export const startTaskSchema = z.object({ language: z.string().min(2).max(5).optional() });
 
 export const reminderSettingsSchema = z
   .object({
@@ -39,7 +43,7 @@ export const unsubscribeSchema = z.object({
   token: z.string().regex(/^[a-f0-9]{24}\.[a-f0-9]{32}$/i, 'This link is not valid'),
 });
 
-export const replanSchema = z.object({ today: isoDate('today').optional() });
+export const replanSchema = z.object({ today: isoDate('today').optional(), language: z.string().min(2).max(5).optional() });
 
 export const chatSchema = z.object({
   message: z.string().trim().min(1, 'Write a message').max(1000),

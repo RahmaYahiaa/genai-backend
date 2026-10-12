@@ -12,7 +12,7 @@ import { validateSchemas } from '../../shared/validation/validate.middleware.js'
 import { ForbiddenError } from '../../shared/errors/index.js';
 import { createSanadService } from './sanad.service.js';
 import { createReminderService } from './sanad.reminders.js';
-import { planIdParamSchema, taskParamSchema, createPlanSchema, listPlansQuerySchema, completeTaskSchema, replanSchema, chatSchema, reminderSettingsSchema, unsubscribeSchema } from './sanad.schema.js';
+import { planIdParamSchema, taskParamSchema, createPlanSchema, listPlansQuerySchema, completeTaskSchema, replanSchema, startTaskSchema, chatSchema, reminderSettingsSchema, unsubscribeSchema } from './sanad.schema.js';
 
 // Plany: the study agent. Understands the goal, reads the student's level,
 // builds a day-by-day plan with AI, teaches, tests, adapts and re-checks.
@@ -61,6 +61,6 @@ sanadRouter.get('/plans', v({ query: listPlansQuerySchema }), asyncHandler(async
 sanadRouter.get('/plans/:planId', v({ params: planIdParamSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.getPlan(req.user, req.validated.params.planId) })));
 sanadRouter.delete('/plans/:planId', v({ params: planIdParamSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.archivePlan(req.user, req.validated.params.planId) })));
 sanadRouter.post('/plans/:planId/replan', v({ params: planIdParamSchema, body: replanSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.replan(req.user, req.validated.params.planId, req.validated.body) })));
-sanadRouter.post('/plans/:planId/tasks/:taskId/start', v({ params: taskParamSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.startTask(req.user, req.validated.params.planId, req.validated.params.taskId) })));
+sanadRouter.post('/plans/:planId/tasks/:taskId/start', v({ params: taskParamSchema, body: startTaskSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.startTask(req.user, req.validated.params.planId, req.validated.params.taskId, req.validated.body) })));
 sanadRouter.post('/plans/:planId/tasks/:taskId/complete', v({ params: taskParamSchema, body: completeTaskSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.completeTask(req.user, req.validated.params.planId, req.validated.params.taskId, req.validated.body) })));
 sanadRouter.post('/plans/:planId/tasks/:taskId/skip', v({ params: taskParamSchema }), asyncHandler(async (req, res) => sendSuccess(res, { data: await s.skipTask(req.user, req.validated.params.planId, req.validated.params.taskId) })));

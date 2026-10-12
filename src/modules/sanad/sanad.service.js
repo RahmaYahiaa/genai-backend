@@ -77,6 +77,13 @@ export function createSanadService({ coursesService, learnerModelService, topicD
   const languageOf = (user, hint = null, text = '') =>
     user.aiLanguage || (/[\u0600-\u06FF]/.test(text) ? 'ar' : null) || hint || user.languagePreference || 'en';
 
+  // Plany follows the language of the screen the student is using. When the
+  // app sends one, it wins; the profile AI language is only the fallback.
+  // The plan keeps the language, so its tasks, lessons and changes match it.
+  const syncLanguage = (plan, hint) => {
+    if (hint) plan.language = hint;
+  };
+
   async function studentCourses(user) {
     const { items } = await coursesService.listCourses(user, { page: 1, limit: 100 });
     return items.map((c) => ({ id: String(c.id ?? c._id), title: c.title, code: c.code ?? null }));
@@ -203,7 +210,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
     const { course, topics, commonMistakes } = await diagnose(user, courseId, topicIds);
     if (!topics.length) throw new ValidationError('This course has no topics yet. Add course files first so Plany can plan.');
     const dates = studyDates(day0, examDate);
-    const language = languageOf(user, hint, goal ?? '');
+    const language = hint || languageOf(user, null, goal ?? '');
 
     const input = { today: day0, examDate, dates, daysCount: dates.length, dailyMinutes, goal: goal ?? '', course: course.title, topics, commonMistakes, language };
     const result = await ai('sanad_plan', SANAD_PLAN_PROMPT, input, language, planOut);
@@ -299,9 +306,10 @@ export function createSanadService({ coursesService, learnerModelService, topicD
 
   const QUESTIONS = { check: 2, practice: 3, quiz: 4, review: 2, reassess: 3 };
 
-  async function startTask(user, planId, taskId) {
+  async function startTask(user, planId, taskId, { language: hint } = {}) {
     const plan = await ownPlan(user, planId);
     if (plan.status !== 'active') throw new ForbiddenError('This plan is no longer active');
+    syncLanguage(plan, hint);
     const { task } = findTask(plan, taskId);
     const courseId = String(plan.courseId);
 
@@ -395,10 +403,11 @@ export function createSanadService({ coursesService, learnerModelService, topicD
     return note;
   }
 
-  async function completeTask(user, planId, taskId, { feeling, today }) {
+  async function completeTask(user, planId, taskId, { feeling, today, language: hint }) {
     const plan = await ownPlan(user, planId);
     const { task } = findTask(plan, taskId);
     if (task.status === 'done') return { plan: await withProgress(user, plan), note: null };
+    syncLanguage(plan, hint);
 
     let event = null;
     if (task.type === 'learn') {
@@ -427,9 +436,10 @@ export function createSanadService({ coursesService, learnerModelService, topicD
     return withProgress(user, plan);
   }
 
-  async function replan(user, planId, { today }) {
+  async function replan(user, planId, { today, language: hint } = {}) {
     const plan = await ownPlan(user, planId);
     if (plan.status !== 'active') throw new ForbiddenError('This plan is no longer active');
+    syncLanguage(plan, hint);
     const note = await adapt(user, plan, { type: 'missed_days' }, today);
     await plan.save();
     return { plan: await withProgress(user, plan), note };
@@ -438,7 +448,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
   // ---------------------------------------------------------------- chat
   async function chat(user, { message, history, courseId, today, language: hint }) {
     const day0 = today || todayIso();
-    const language = languageOf(user, hint, message);
+    const language = hint || languageOf(user, null, message);
     const courses = await studentCourses(user);
     const plans = await listPlans(user, { status: 'active' });
     const activePlans = plans.map((p) => ({ id: p.id, courseId: p.courseId, title: p.courseTitle, examDate: p.examDate, nextTask: p.nextTask?.title ?? null }));
