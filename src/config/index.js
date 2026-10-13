@@ -78,6 +78,13 @@ const envSchema = z.object({
   LERNA_TUTOR_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   LERNA_PROBE_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
 
+  // LernaVoice (realtime voice service). Server-side only; keys never reach the browser.
+  // The facade key protects /lerna-facade/tutor/chat, which the voice service calls for course grounding.
+  VOICE_SERVICE_URL: z.string().optional().default(''),
+  VOICE_SERVICE_API_KEY: z.string().optional().default(''),
+  VOICE_FACADE_API_KEY: z.string().optional().default(''),
+  VOICE_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+
   CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(8000).default(1200),
   CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).max(1000).default(150),
   VECTOR_SEARCH_MODE: z.enum(['auto', 'atlas', 'fallback']).default('auto'),
@@ -211,6 +218,15 @@ export const config = Object.freeze({
     timeoutMs: rawConfig.LERNA_TIMEOUT_MS,
     tutorTimeoutMs: rawConfig.LERNA_TUTOR_TIMEOUT_MS,
     probeTimeoutMs: rawConfig.LERNA_PROBE_TIMEOUT_MS,
+  },
+
+  voice: {
+    enabled: rawConfig.VOICE_SERVICE_URL.length > 0,
+    baseUrl: rawConfig.VOICE_SERVICE_URL.replace(/\/+$/, ''),
+    wsBaseUrl: rawConfig.VOICE_SERVICE_URL.replace(/\/+$/, '').replace(/^http/, 'ws'),
+    apiKey: rawConfig.VOICE_SERVICE_API_KEY,
+    facadeApiKey: rawConfig.VOICE_FACADE_API_KEY,
+    timeoutMs: rawConfig.VOICE_TIMEOUT_MS,
   },
 
   rateLimit: {

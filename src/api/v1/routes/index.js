@@ -20,6 +20,7 @@ import { learningResourcesRouter } from '../../../modules/content-generation/ind
 import { lernaRouter } from '../../../modules/lerna/index.js';
 import { topicsRouter } from '../../../modules/topics/index.js';
 import { sanadRouter, sanadPublicRouter } from '../../../modules/sanad/index.js';
+import { voiceRouter, voiceFacadeRouter } from '../../../modules/voice/index.js';
 
 const router = Router();
 
@@ -28,6 +29,8 @@ const router = Router();
 router.use('/invitations', invitationAcceptRouter);
 // Public "Stop reminders" link from Plany emails.
 router.use('/sanad', sanadPublicRouter);
+// Server-to-server grounding for the LernaVoice service (own key, no student token).
+router.use(voiceFacadeRouter);
 
 router.use(healthRoutes);
 router.use('/auth', authRouter);
@@ -43,6 +46,7 @@ router.use(topicsRouter);
 router.use(learnerDiagnosticRouter);
 // Handles /courses/:courseId/tutor/* routes internally (AI tutor module).
 router.use(tutorRouter);
+router.use(voiceRouter);
 // Handles /courses/:courseId/practice/* routes internally (practice module).
 router.use(practiceRouter);
 // Handles /courses/:courseId/reassessments/* and /learning-gain routes
