@@ -18,6 +18,17 @@ const createVoiceSessionSchema = z.object({
 const sessionParamSchema = z.object({ sessionId: z.string().regex(/^vs_[A-Za-z0-9]+$/, 'Invalid session id') });
 const latestQuerySchema = z.object({ courseId: objectId });
 
+const saveTranscriptSchema = z.object({
+  turns: z
+    .array(
+      z.object({
+        role: z.enum(['student', 'tutor']),
+        text: z.string().max(8000),
+      }),
+    )
+    .max(500),
+});
+
 const facadeChatSchema = z.object({
   student_id: objectId,
   message: z.string().min(1).max(2000),
@@ -36,7 +47,7 @@ function bearerMatches(header, expectedKey) {
  * facade the LernaVoice service calls for course grounding. The facade is
  * mounted separately so it can use its own key instead of a student token.
  */
-export function createVoiceRouter({ voiceService, authenticate, facadeApiKey }) {
+export function createVoiceRouter({ voiceService, authenticate }) {
   const router = Router();
 
   router.get(
@@ -74,6 +85,16 @@ export function createVoiceRouter({ voiceService, authenticate, facadeApiKey }) 
     asyncHandler(async (req, res) => {
       const minted = await voiceService.mintTokenFor(req.user, req.validated.params.sessionId);
       sendSuccess(res, { data: minted });
+    }),
+  );
+
+  router.post(
+    '/voice/sessions/:sessionId/transcript',
+    authenticate,
+    validateSchemas({ params: sessionParamSchema, body: saveTranscriptSchema }),
+    asyncHandler(async (req, res) => {
+      const saved = await voiceService.saveTranscript(req.user, req.validated.params.sessionId, req.validated.body.turns);
+      sendSuccess(res, { data: saved });
     }),
   );
 

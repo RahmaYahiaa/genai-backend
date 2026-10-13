@@ -1,6 +1,7 @@
 import { config } from '../../config/index.js';
 import { authenticate } from '../auth/index.js';
 import { coursesService } from '../courses/index.js';
+import { tutorSessionRepository, tutorSessionModel } from '../tutor/index.js';
 import { retrievalService } from '../retrieval/index.js';
 import { VoiceSession } from './voice-session.model.js';
 import { createVoiceClient } from './voice.client.js';
@@ -18,6 +19,8 @@ const voiceClient = createVoiceClient({
 export const voiceService = createVoiceService({
   client: voiceClient,
   voiceSessionModel: VoiceSession,
+  tutorSessionRepository,
+  tutorSessionModel,
   coursesService,
   retrievalService,
   wsBaseUrl: config.voice.wsBaseUrl,

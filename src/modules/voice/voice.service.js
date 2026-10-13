@@ -10,6 +10,8 @@ const STATUS_TTL_MS = 30_000;
 export function createVoiceService({
   client,
   voiceSessionModel,
+  tutorSessionRepository,
+  tutorSessionModel,
   coursesService,
   retrievalService,
   wsBaseUrl,
@@ -77,7 +79,7 @@ export function createVoiceService({
     });
 
     const sessionId = created.session_id;
-    await voiceSessionModel.create({ sessionId, studentId: user.id, courseId, lessonId, topic, language });
+    await voiceSessionModel.create({ sessionId, studentId: user.id, courseId, lessonId, topicId, topic, language });
 
     const minted = await mintFor(sessionId);
     return { sessionId, wsUrl: websocketUrl(sessionId), topic, resumed: false, ...minted };
@@ -133,5 +135,44 @@ export function createVoiceService({
     };
   }
 
-  return { status, startSession, mintTokenFor, latestFor, retrieveEvidence };
+  /**
+   * Saves a finished (or paused) voice lesson into the student's tutor chat
+   * history, so it appears with the written chats. Messages are stored as
+   * given: no LLM call, no citations. Saving again replaces the messages of
+   * the same entry.
+   */
+  async function saveTranscript(user, sessionId, turns) {
+    const record = await voiceSessionModel.findOne({ sessionId }).lean();
+    if (!record) throw new NotFoundError('Voice session not found');
+    if (String(record.studentId) !== String(user.id)) {
+      throw new ForbiddenError('This voice session belongs to another student');
+    }
+    const course = await coursesService.ensureStudentCourseAccess(user, record.courseId);
+
+    const messages = turns
+      .map((turn) => ({ role: turn.role, content: String(turn.text ?? '').trim().slice(0, 8000) }))
+      .filter((message) => message.content.length > 0);
+    if (messages.length === 0) return { tutorSessionId: record.tutorSessionId ? String(record.tutorSessionId) : null, messageCount: 0 };
+
+    if (record.tutorSessionId) {
+      await tutorSessionModel.updateOne({ _id: record.tutorSessionId }, { $set: { messages } });
+      return { tutorSessionId: String(record.tutorSessionId), messageCount: messages.length };
+    }
+
+    const created = await tutorSessionRepository.create({
+      studentId: user.id,
+      courseId: record.courseId,
+      topicId: record.topicId ?? null,
+      mode: 'explanation',
+      status: 'active',
+      messages,
+      title: null,
+      institutionId: course.institutionId ?? null,
+      isPersonal: Boolean(course.isPersonal),
+    });
+    await voiceSessionModel.updateOne({ sessionId }, { $set: { tutorSessionId: created._id } });
+    return { tutorSessionId: String(created._id), messageCount: messages.length };
+  }
+
+  return { status, startSession, mintTokenFor, latestFor, retrieveEvidence, saveTranscript };
 }
