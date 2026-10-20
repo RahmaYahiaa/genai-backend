@@ -27,8 +27,22 @@ export function createAssignmentsController({ assignmentsService, submissionsSer
       req.validated.params.courseId,
       req.validated.query,
     );
+    let data = items;
+    if (req.user.role === ROLES.STUDENT && items?.length) {
+      // Read-only enrichment for the student's own list: their submission status and whether
+      // an unsubmitted draft has answers (so the list can show "Draft saved" honestly).
+      const summaries = await submissionsService.summarizeStudentSubmissions(
+        req.user,
+        items.map((item) => item.id),
+      );
+      data = items.map((item) => ({
+        ...item,
+        submission: summaries.get(String(item.id))?.submission ?? null,
+        hasDraftAnswers: summaries.get(String(item.id))?.hasDraftAnswers ?? false,
+      }));
+    }
     sendSuccess(res, {
-      data: items,
+      data,
       meta: buildPaginationMeta({
         page: req.validated.query.page,
         limit: req.validated.query.limit,

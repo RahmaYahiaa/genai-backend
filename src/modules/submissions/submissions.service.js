@@ -126,12 +126,14 @@ export function createSubmissionsService({
   }
 
   async function buildWorkingAnswers(submission) {
-    if (!submission || !EDITABLE_SUBMISSION_STATUSES.includes(submission.status)) {
+    if (!submission) {
       return null;
     }
     const attempt = await submissionAttemptRepository.findLatest(submission._id);
     const current = attempt ? await submissionAnswerRepository.listByAttempt(attempt._id) : [];
     const working = current.map(toWorkingAnswer);
+    // Latest-attempt answers are returned for every status so the student can always see
+    // what was submitted (read-only once submitted; the editor decides what is editable).
     if (submission.status !== SUBMISSION_STATUS.RESUBMISSION_REQUESTED) {
       return working;
     }
@@ -240,8 +242,10 @@ export function createSubmissionsService({
       if (uniqueSelection.some((id) => !knownIds.has(id))) {
         throw new UnprocessableEntityError('selectedOptionIds contains an option that does not belong to this question');
       }
-      if (questionType !== ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT && uniqueSelection.length !== 1) {
-        throw new UnprocessableEntityError('select exactly one option for multiple_choice and true_false questions');
+      // Autosave sends every question, including untouched single-choice ones, so an empty
+      // selection means "no answer yet" (cleared) and is accepted. More than one is rejected.
+      if (questionType !== ASSIGNMENT_QUESTION_TYPES.MULTIPLE_SELECT && uniqueSelection.length > 1) {
+        throw new UnprocessableEntityError('select at most one option for multiple_choice and true_false questions');
       }
     }
 
@@ -307,10 +311,40 @@ export function createSubmissionsService({
     return toPublicSubmission(updated);
   }
 
+  // Batch summary for the student's assignment list: the student's own submission (if any)
+  // and whether an unsubmitted draft has any answer in it. Read-only.
+  async function summarizeStudentSubmissions(user, assignmentIds) {
+    const entries = await Promise.all(
+      assignmentIds.map(async (assignmentId) => {
+        const submission = await submissionRepository.findByAssignmentAndStudent(assignmentId, user.id);
+        let hasDraftAnswers = false;
+        if (submission && EDITABLE_SUBMISSION_STATUSES.includes(submission.status)) {
+          const attempt = await submissionAttemptRepository.findLatest(submission._id);
+          const answers = attempt ? await submissionAnswerRepository.listByAttempt(attempt._id) : [];
+          hasDraftAnswers = answers.some(
+            (answer) =>
+              (answer.answerText ?? '').trim() ||
+              (answer.selectedOptionIds ?? []).length > 0 ||
+              answer.imageUrl,
+          );
+        }
+        return [
+          String(assignmentId),
+          {
+            submission: submission ? toPublicSubmission(submission) : null,
+            hasDraftAnswers,
+          },
+        ];
+      }),
+    );
+    return new Map(entries);
+  }
+
   return {
     getStudentAssignmentView,
     getStudentResult,
     autosaveAnswer,
     submitAssignment,
+    summarizeStudentSubmissions,
   };
 }

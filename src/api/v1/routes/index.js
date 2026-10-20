@@ -4,7 +4,7 @@ import { authRouter } from '../../../modules/auth/index.js';
 import { academicStructureRouter } from '../../../modules/academic-structure/index.js';
 import { coursesRouter } from '../../../modules/courses/index.js';
 import { knowledgeIngestionRouter } from '../../../modules/knowledge/index.js';
-import { learnerDiagnosticRouter } from '../../../modules/learner/index.js';
+import { learnerDiagnosticRouter, publicDemoMasteryRouter } from '../../../modules/learner/index.js';
 import { tutorRouter } from '../../../modules/tutor/index.js';
 import { practiceRouter } from '../../../modules/practice/index.js';
 import { reassessmentRouter } from '../../../modules/reassessment/index.js';
@@ -24,8 +24,10 @@ import { voiceRouter, voiceFacadeRouter } from '../../../modules/voice/index.js'
 
 const router = Router();
 
+// Public, read-only demo data for the login page (no auth). Mounted first: some routers
+// below call authenticate at root level and would otherwise block it.
+router.use(publicDemoMasteryRouter);
 // Public invitation links sent by email (/?invite=TOKEN in the web app).
-// Mounted first: some feature routers below apply authentication router-wide.
 router.use('/invitations', invitationAcceptRouter);
 // Public "Stop reminders" link from Plany emails.
 router.use('/sanad', sanadPublicRouter);
