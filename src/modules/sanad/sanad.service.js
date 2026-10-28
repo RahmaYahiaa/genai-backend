@@ -456,7 +456,7 @@ export function createSanadService({ coursesService, learnerModelService, topicD
     const scope = await classifyEducationalScope({ llmProvider, message });
     if (scope !== 'educational') {
       return {
-        reply: scopeReplyFor(message, scope === 'invalid' ? 'unavailable' : 'refused'),
+        reply: scopeReplyFor(message, scope === 'invalid' ? 'unavailable' : 'refused', language),
         intent: 'other',
         action: null,
         source: 'scope',

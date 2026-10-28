@@ -32,10 +32,17 @@ const UNAVAILABLE = {
   en: 'I could not check this message right now. Please try again in a moment.',
 };
 
-export function scopeReplyFor(message, kind = 'refused') {
-  const ar = /[\u0600-\u06FF]/.test(message ?? '');
+/**
+ * Refusal text in the language the reply is written in (the app's response
+ * language). Only when no language is known does it fall back to the script
+ * of the message itself.
+ */
+export function scopeReplyFor(message, kind = 'refused', language = null) {
   const table = kind === 'unavailable' ? UNAVAILABLE : REFUSAL;
-  return ar ? table.ar : table.en;
+  const useArabic = language
+    ? String(language).toLowerCase().startsWith('ar')
+    : /[\u0600-\u06FF]/.test(message ?? '');
+  return useArabic ? table.ar : table.en;
 }
 
 export async function classifyEducationalScope({ llmProvider, message, task = 'classify_message_scope' }) {

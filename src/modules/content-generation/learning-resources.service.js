@@ -326,7 +326,7 @@ export function createLearningResourcesService({
       // Scope gate: a typed topic must be an academic subject before any material is generated.
       const scope = await classifyEducationalScope({ llmProvider, message: data.topic, task: 'classify_study_topic_scope' });
       if (scope !== 'educational') {
-        throw new ValidationError(scopeReplyFor(data.topic, scope === 'invalid' ? 'unavailable' : 'refused'));
+        throw new ValidationError(scopeReplyFor(data.topic, scope === 'invalid' ? 'unavailable' : 'refused', data.language));
       }
     }
     const batchId = data.batchId ?? crypto.randomUUID().slice(0, 8);
