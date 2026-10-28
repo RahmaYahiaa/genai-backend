@@ -10,6 +10,7 @@ import {
   searchTrustedSources,
 } from '../../shared/web/trusted-search.js';
 import { fallbackDiagramSpec, renderFlowDiagram } from '../../shared/artifacts/flow-diagram.js';
+import { classifyEducationalScope, scopeReplyFor } from '../../shared/ai/scope-gate.js';
 import { buildPresentationBuffer, fallbackOutline } from '../../shared/artifacts/pptx-builder.js';
 import {
   llmDeckOutlineSchema,
@@ -321,6 +322,12 @@ export function createLearningResourcesService({
         throw new ValidationError('Choose a file of this course');
       }
       data = { ...data, topic: material.title };
+    } else if (data.topic) {
+      // Scope gate: a typed topic must be an academic subject before any material is generated.
+      const scope = await classifyEducationalScope({ llmProvider, message: data.topic, task: 'classify_study_topic_scope' });
+      if (scope !== 'educational') {
+        throw new ValidationError(scopeReplyFor(data.topic, scope === 'invalid' ? 'unavailable' : 'refused'));
+      }
     }
     const batchId = data.batchId ?? crypto.randomUUID().slice(0, 8);
     const focus = await learnerFocus(user, docCourseId);
