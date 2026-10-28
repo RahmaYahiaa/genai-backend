@@ -4,6 +4,7 @@ import { logger } from '../../config/logger.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../../shared/errors/index.js';
 import StudyPlan, { TASK_TYPES } from './study-plan.model.js';
 import { SANAD_UNDERSTAND_PROMPT, SANAD_PLAN_PROMPT, SANAD_ADAPT_PROMPT, SANAD_LESSON_PROMPT } from './sanad.prompts.js';
+import { classifyEducationalScope, scopeReplyFor } from '../../shared/ai/scope-gate.js';
 import { rulePlan, ruleAdapt, ruleUnderstand, ruleLesson, TASK_MINUTES } from './sanad.fallback.js';
 
 const MAX_DAYS = 30;
@@ -450,6 +451,19 @@ export function createSanadService({ coursesService, learnerModelService, topicD
     const day0 = today || todayIso();
     const language = hint || languageOf(user, null, message);
     const courses = await studentCourses(user);
+
+    // Scope gate: only study questions get an answer. Refused before any planning or AI answer.
+    const scope = await classifyEducationalScope({ llmProvider, message });
+    if (scope !== 'educational') {
+      return {
+        reply: scopeReplyFor(message, scope === 'invalid' ? 'unavailable' : 'refused'),
+        intent: 'other',
+        action: null,
+        source: 'scope',
+        courses,
+      };
+    }
+
     const plans = await listPlans(user, { status: 'active' });
     const activePlans = plans.map((p) => ({ id: p.id, courseId: p.courseId, title: p.courseTitle, examDate: p.examDate, nextTask: p.nextTask?.title ?? null }));
     const input = { message, history: (history ?? []).slice(-6), today: day0, courses, currentCourseId: courseId ?? null, activePlans, language };
