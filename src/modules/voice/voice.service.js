@@ -166,7 +166,9 @@ export function createVoiceService({
       mode: 'explanation',
       status: 'active',
       messages,
-      title: null,
+      // The lesson's topic is the title. Without it, the history list falls back to the first
+      // student turn, which is often a spoken fragment or a typed "continue".
+      title: record.topic ? String(record.topic).trim().slice(0, 120) || null : null,
       institutionId: course.institutionId ?? null,
       isPersonal: Boolean(course.isPersonal),
     });
