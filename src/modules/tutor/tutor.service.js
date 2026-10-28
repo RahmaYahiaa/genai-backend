@@ -6,10 +6,11 @@ import {
   AiServiceUnavailableError,
   InsufficientEvidenceError,
   NotFoundError,
+  ServiceUnavailableError,
   ValidationError,
 } from '../../shared/errors/index.js';
 import { toPublicTutorSession } from './tutor-session.model.js';
-import { llmExternalAnswerSchema, llmTutorAnswerSchema } from './tutor.schema.js';
+import { llmExternalAnswerSchema, llmScopeSchema, llmTutorAnswerSchema } from './tutor.schema.js';
 import {
   isWebSearchEnabled,
   planSourceStrategy,
@@ -38,6 +39,7 @@ function withLanguage(prompt, user) {
 
 const TUTOR_SYSTEM_PROMPT =
   'You are a course tutor for an academic learning platform. ' +
+  'Only answer educational and study questions. ' +
   'Answer ONLY from the trusted course material excerpts provided in the input. ' +
   'Every claim must come from those excerpts; if they are not enough, say so. ' +
   'Speak directly to the student in a friendly teaching voice; never mention "excerpts", "chunks", "source 1" or the input - the app shows the sources separately. ' +
@@ -47,12 +49,35 @@ const TUTOR_SYSTEM_PROMPT =
 
 const EXTERNAL_TUTOR_SYSTEM_PROMPT =
   'You are a course tutor for an academic learning platform. ' +
+  'Only answer educational and study questions. ' +
   'Answer ONLY from the trusted external academic sources provided in the input - never from your own memory. ' +
   'Every claim must come from those sources; if they are not enough, say so. ' +
   'Speak directly to the student in a friendly teaching voice; never mention "excerpts", "chunks", "source 1" or the input - the app shows the sources separately. ' +
   'Answer in the same language as the student question (Arabic question -> Arabic answer with technical terms kept in English where standard). ' +
   'Respond with JSON only, matching exactly: ' +
   '{"answer":"<your grounded explanation>","usedSourceIndexes":[<1-based indexes of the sources you actually used>]}';
+
+// Scope gate: runs before any retrieval, web search or AI answer. Anything that
+// is not an academic/study question is refused (fail closed: if the check
+// itself fails, the question is refused too).
+const TUTOR_SCOPE_SYSTEM_PROMPT =
+  'You classify a student message for an academic learning tutor. ' +
+  'Return "educational" if the message asks to learn, understand, practise or get help with an academic or study subject ' +
+  '(any school, university or professional subject such as mathematics, sciences, computing, engineering, languages, history, ' +
+  'economics or politics as subjects of study, or how to study). ' +
+  'Return "off_topic" for anything else: current news, a specific person or celebrity, entertainment, sports, gossip, ' +
+  'shopping, personal or romantic advice, opinions on current politics, or chit-chat with no learning goal. ' +
+  'Return "inappropriate" for sexual, violent, hateful or otherwise unacceptable content. ' +
+  'Respond with JSON only, matching exactly: {"scope":"educational"|"off_topic"|"inappropriate"}';
+
+const OUT_OF_SCOPE_MESSAGES = {
+  ar: 'أنا هنا للمساعدة في الأسئلة التعليمية والدراسية فقط. لو عندك سؤال عن مادة دراسية أو موضوع في الكورس، اكتبه وأنا أساعدك.',
+  en: 'I can only help with educational and study questions. If you have a question about a subject or a course topic, ask it and I will help.',
+};
+
+function outOfScopeMessageFor(question) {
+  return /[\u0600-\u06FF]/.test(question) ? OUT_OF_SCOPE_MESSAGES.ar : OUT_OF_SCOPE_MESSAGES.en;
+}
 
 /**
  * AI Tutor (flow steps 11-13). Owner-only. The deterministic retrieval gate
@@ -154,12 +179,46 @@ export function createTutorService({
     return { id: String(session._id), deleted: true };
   }
 
+  // --- Scope classification (educational vs off-topic / inappropriate) ---
+
+  async function classifyTutorScope(question) {
+    try {
+      const raw = await llmProvider.completeJson({
+        task: 'classify_tutor_scope',
+        system: TUTOR_SCOPE_SYSTEM_PROMPT,
+        user: JSON.stringify({ message: question }),
+      });
+      return parseLlmJson(raw, llmScopeSchema, 'classify_tutor_scope').scope;
+    } catch (error) {
+      logger.warn({ err: error?.message }, 'Tutor scope check failed; refusing question (fail closed)');
+      throw new ServiceUnavailableError('We could not check this question right now. Please try again.');
+    }
+  }
+
   // --- Ask a grounded question (flow steps 12-13) ---
 
   async function askQuestion(user, courseId, tutorSessionId, data) {
     const { course, session } = await requireOwnedSession(user, courseId, tutorSessionId);
     if (session.status !== 'active') {
       throw new ValidationError('This tutor session is closed');
+    }
+
+    // Scope gate (before topic detection, retrieval, web search and LeRna).
+    const scope = await classifyTutorScope(data.content);
+    if (scope !== 'educational') {
+      await tutorSessionRepository.pushMessage(session._id, {
+        role: 'student',
+        content: data.content,
+        citations: [],
+        grounding: null,
+      });
+      const refused = await tutorSessionRepository.pushMessage(session._id, {
+        role: 'tutor',
+        content: outOfScopeMessageFor(data.content),
+        citations: [],
+        grounding: GROUNDING_STATUSES.OUT_OF_SCOPE,
+      });
+      return shapedAnswer(refused, null);
     }
 
     const topics = getCourseTopics(course);

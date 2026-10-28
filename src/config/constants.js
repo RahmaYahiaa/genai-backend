@@ -170,6 +170,8 @@ export const GROUNDING_STATUSES = {
   // Grounded in trusted external academic sources discovered live (EDUNation
   // parity), never in the model's own memory.
   EXTERNAL_TRUSTED: 'external_trusted',
+  // Question is outside educational scope: refused before any retrieval, web search or AI answer.
+  OUT_OF_SCOPE: 'out_of_scope',
 };
 
 // --- AI Teaching Assistant ---

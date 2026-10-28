@@ -40,6 +40,10 @@ export const sendTutorMessageSchema = z.object({
 
 // --- Mandatory Zod contract for the tutor LLM output (never trust the model) ---
 
+export const llmScopeSchema = z.object({
+  scope: z.enum(['educational', 'off_topic', 'inappropriate']),
+});
+
 export const llmTutorAnswerSchema = z.object({
   answer: z.string().min(3).max(4000),
   usedChunkIds: z.array(z.string().min(1)).max(10).default([]),
